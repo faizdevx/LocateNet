@@ -1,40 +1,35 @@
-from flask import Flask, render_template, request, redirect, session
-import yaml
+from flask import Flask, render_template, request, redirect, session, flash
 import bcrypt 
 from models import *
 import os
+import time
 from werkzeug.utils import secure_filename
 import folium
 
 app = Flask(__name__)
-app.secret_key = "secret123"
+app.secret_key = "super_secret_locate_net_key" # Change this for production
 
 UPLOAD_FOLDER = "uploads"
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 
+# Ensure upload directory exists
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
-# Define this before the routes so they can use it
 CITY_COORDS = {
     "Delhi": [28.6139, 77.2090],
     "Lucknow": [26.8467, 80.9462],
     "Mumbai": [19.0760, 72.8777]
 }
 
-# Helper function to generate the map
 def create_map():
-    # Center map on India
     m = folium.Map(location=[22.9734, 78.6569], zoom_start=5, tiles="CartoDB positron")
-    
-    data = get_case_counts_by_city() # Ensure this is defined in models.py
-    
+    data = get_case_counts_by_city()
     for city, counts in data.items():
         coords = CITY_COORDS.get(city)
         if coords:
             total = counts["found"] + counts["not_found"]
             color = "red" if counts["not_found"] > 0 else "green"
-            
             folium.CircleMarker(
                 location=coords,
                 radius=10 + (total * 2),
@@ -43,30 +38,31 @@ def create_map():
                 fill_opacity=0.6,
                 popup=f"City: {city}<br>Missing: {counts['not_found']}<br>Found: {counts['found']}"
             ).add_to(m)
-            
     return m._repr_html_()
 
-# Load YAML config
-with open("login_config.yml") as f:
-    config = yaml.safe_load(f)
+# --- ROUTES ---
 
 @app.route("/", methods=["GET","POST"])
 def login():
     if request.method == "POST":
         username = request.form["username"]
         password_entered = request.form["password"]
-        users = config["credentials"]["usernames"]
 
-        if username in users:
-            stored_hash = users[username]["password"].encode('utf-8')
-            if bcrypt.checkpw(password_entered.encode('utf-8'), stored_hash):
+        # Fetch user from Database instead of YAML
+        user = get_user_by_username(username)
+
+        if user:
+            # checkpw requires bytes
+            if bcrypt.checkpw(password_entered.encode('utf-8'), user['password_hash'].encode('utf-8')):
                 session["user"] = username
-                session["role"] = users[username]["role"]
+                session["role"] = user['role']
+                session["name"] = user['name']
                 return redirect("/dashboard")
             else:
-                print("Wrong password")
+                flash("Invalid Password")
         else:
-            print("User not found")
+            flash("User not found")
+            
     return render_template("login.html")
 
 @app.route("/dashboard")
@@ -75,38 +71,20 @@ def dashboard():
         return redirect("/")
 
     user = session["user"]
-    role = session.get("role") # Retrieve role stored during login
+    role = session.get("role")
     map_html = create_map()
 
     if role == "Admin":
-        # Admins see GLOBAL data
-        all_cases = get_all_cases_admin() 
-        found_count = get_total_count("F")
-        not_found_count = get_total_count("NF")
-        
-        return render_template(
-            "admin_dashboard.html",
-            found=found_count,
-            not_found=not_found_count,
-            user=user,
-            cases=all_cases,
-            map=map_html
-        )
+        cases = get_all_cases_admin() 
+        found = get_total_count("F")
+        not_found = get_total_count("NF")
+        return render_template("admin_dashboard.html", found=found, not_found=not_found, user=user, cases=cases, map=map_html)
     
     else:
-        # Officers see PERSONAL data
         found_cases = get_registered_cases_count(user, "F")
         non_found_cases = get_registered_cases_count(user, "NF")
-        cases_list = get_all_cases(user) 
-        
-        return render_template(
-            "officer_dashboard.html",
-            found=len(found_cases),
-            not_found=len(non_found_cases),
-            user=user,
-            cases=cases_list,
-            map=map_html
-        )
+        cases = get_all_cases(user) 
+        return render_template("officer_dashboard.html", found=len(found_cases), not_found=len(non_found_cases), user=user, cases=cases, map=map_html)
 
 @app.route("/register_case", methods=["GET", "POST"])
 def register_case():
@@ -119,7 +97,8 @@ def register_case():
         file = request.files['image']
         
         if file and file.filename != '':
-            filename = secure_filename(file.filename)
+            # Unique filename using timestamp to prevent overwriting
+            filename = f"{int(time.time())}_{secure_filename(file.filename)}"
             filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
             file.save(filepath)
             
@@ -128,19 +107,37 @@ def register_case():
 
     return render_template("register_case.html")
 
-
 @app.route("/resolve/<int:case_id>")
 def resolve(case_id):
     if "user" not in session:
         return redirect("/")
     
-    # Optional: Only let Admins resolve cases
-    # if session.get("role") != "Admin":
-    #     return "Unauthorized", 403
-
-    resolve_case(case_id)
+    case = get_case_by_id(case_id)
+    # Security: Admins can resolve any, Officers only their own
+    if session["role"] == "Admin" or case['officer'] == session["user"]:
+        resolve_case(case_id)
+    
     return redirect("/dashboard")
 
+@app.route("/create_officer", methods=["GET", "POST"])
+def create_officer():
+    if session.get("role") != "Admin":
+        return redirect("/")
+
+    if request.method == "POST":
+        new_user = request.form["username"]
+        new_pass = request.form["password"]
+        full_name = request.form["name"]
+
+        hashed = bcrypt.hashpw(new_pass.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        
+        if add_new_user(new_user, hashed, full_name):
+            flash(f"Officer {new_user} created successfully!")
+            return redirect("/dashboard")
+        else:
+            flash("Username already exists!")
+
+    return render_template("create_officer.html")
 
 @app.route("/logout")
 def logout():

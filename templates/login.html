@@ -1,13 +1,77 @@
-<h2>Admin Login</h2>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login | LocateNet</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #1e1e2f 0%, #0d0d15 100%);
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .login-card {
+            width: 100%;
+            max-width: 400px;
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        .brand-logo {
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: #0d6efd;
+            letter-spacing: -1px;
+        }
+    </style>
+</head>
+<body>
 
-<form method="POST">
+<div class="card login-card">
+    <div class="card-body p-5">
+        <div class="text-center mb-4">
+            <div class="brand-logo">LocateNet</div>
+            <p class="text-muted small">AI-Powered Missing Person Recovery</p>
+        </div>
 
-Username
-<input type="text" name="username">
+        <h4 class="text-center mb-4">Secure Login</h4>
 
-Password
-<input type="password" name="password">
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}
+            {% for message in messages %}
+              <div class="alert alert-danger py-2 small text-center" role="alert">
+                {{ message }}
+              </div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
 
-<button type="submit">Login</button>
+        <form method="POST">
+            <div class="mb-3">
+                <label for="username" class="form-label small fw-bold">Username</label>
+                <input type="text" class="form-control form-control-lg" id="username" name="username" placeholder="Enter username" required autofocus>
+            </div>
 
-</form>
+            <div class="mb-4">
+                <label for="password" class="form-label small fw-bold">Password</label>
+                <input type="password" class="form-control form-control-lg" id="password" name="password" placeholder="••••••••" required>
+            </div>
+
+            <div class="d-grid">
+                <button type="submit" class="btn btn-primary btn-lg shadow-sm">Login to Portal</button>
+            </div>
+        </form>
+    </div>
+    <div class="card-footer bg-transparent border-0 text-center pb-4">
+        <small class="text-muted text-uppercase" style="font-size: 0.65rem; letter-spacing: 1px;">
+            Authorized Personnel Only
+        </small>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

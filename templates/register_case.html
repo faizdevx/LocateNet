@@ -4,37 +4,78 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Register New Case | LocateNet</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f8f9fa; }
+        .form-container { max-width: 600px; margin: 50px auto; }
+        #imagePreview { max-width: 100%; height: 200px; object-fit: cover; display: none; border-radius: 8px; margin-top: 10px; }
+    </style>
 </head>
 <body>
-    <div class="container">
-        <div class="form-header">
-            <h2>Register Missing Person Case</h2>
-            <p>Please enter the details accurately to help our AI matching system.</p>
+
+<div class="container">
+    <div class="form-container">
+        <div class="card shadow border-0">
+            <div class="card-header bg-dark text-white text-center py-3">
+                <h4 class="mb-0">Register Missing Person Case</h4>
+            </div>
+            <div class="card-body p-4">
+                <p class="text-muted text-center mb-4">Provide accurate details to assist our AI recognition system.</p>
+
+                {% with messages = get_flashed_messages() %}
+                  {% if messages %}
+                    {% for message in messages %}
+                      <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                      </div>
+                    {% endfor %}
+                  {% endif %}
+                {% endwith %}
+
+                <form method="POST" action="/register_case" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label for="person_name" class="form-label fw-bold">Full Name of Missing Person</label>
+                        <input type="text" class="form-control" id="person_name" name="person_name" placeholder="Enter full name" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="city" class="form-label fw-bold">Last Seen City</label>
+                        <input type="text" class="form-control" id="city" name="city" placeholder="e.g. Lucknow, Delhi" required>
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="image" class="form-label fw-bold">Upload Recent Photograph</label>
+                        <input type="file" class="form-control" id="image" name="image" accept="image/*" onchange="previewImage(event)" required>
+                        <div id="fileHelp" class="form-text text-danger">High quality images improve recognition accuracy.</div>
+                        <img id="imagePreview" alt="Image Preview">
+                    </div>
+
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary btn-lg">Submit Case to Database</button>
+                        <a href="/dashboard" class="btn btn-outline-secondary">Cancel & Return</a>
+                    </div>
+                </form>
+            </div>
         </div>
-
-        <form method="POST" action="/register_case" enctype="multipart/form-data" class="registration-form">
-            <div class="form-group">
-                <label for="person_name">Missing Person Name</label>
-                <input type="text" id="person_name" name="person_name" placeholder="Full Name" required>
-            </div>
-
-            <div class="form-group">
-                <label for="city">Last Seen City</label>
-                <input type="text" id="city" name="city" placeholder="e.g. Lucknow" required>
-            </div>
-
-            <div class="form-group">
-                <label for="image">Upload Clear Photograph</label>
-                <input type="file" id="image" name="image" accept="image/*" required>
-                <small>Format: JPG, PNG (Max 5MB)</small>
-            </div>
-
-            <div class="form-actions">
-                <button type="submit" class="btn-submit">Submit Case</button>
-                <a href="/dashboard" class="btn-cancel">Cancel</a>
-            </div>
-        </form>
+        <div class="text-center mt-3 text-muted">
+            <small>LocateNet Security Protocol: All uploads are logged by {{ user }}.</small>
+        </div>
     </div>
+</div>
+
+<script>
+    function previewImage(event) {
+        var reader = new FileReader();
+        reader.onload = function() {
+            var output = document.getElementById('imagePreview');
+            output.src = reader.result;
+            output.style.display = 'block';
+        };
+        reader.readAsDataURL(event.target.files[0]);
+    }
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
