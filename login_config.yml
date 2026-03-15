@@ -1,0 +1,22 @@
+credentials:
+  usernames:
+    admin:
+      name: Admin Officer
+      # Hash for 'admin123'
+      password: "$2b$12$2IGHb0gc.zG6dio7Igdw0O9sRZ2WrWQWeKhqBU20qz.Uqn86rhYdW"
+      role: Admin
+      area: HQ
+      city: Delhi
+
+    officer:
+      name: Rahul Singh
+      # Hash for 'officer123'
+      password: "$2b$12$BIA45VX.bNefC9Yf/i8Z/eQChU34Ah8vfcGqvyJ9pc90YlPGyC6He"
+      role: Officer
+      area: Sector 5
+      city: Lucknow
+
+cookie:
+  name: missing_person_cookie
+  key: random_secret_key
+  expiry_days: 7

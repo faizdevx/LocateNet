@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register New Case | LocateNet</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <div class="form-header">
+            <h2>Register Missing Person Case</h2>
+            <p>Please enter the details accurately to help our AI matching system.</p>
+        </div>
+
+        <form method="POST" action="/register_case" enctype="multipart/form-data" class="registration-form">
+            <div class="form-group">
+                <label for="person_name">Missing Person Name</label>
+                <input type="text" id="person_name" name="person_name" placeholder="Full Name" required>
+            </div>
+
+            <div class="form-group">
+                <label for="city">Last Seen City</label>
+                <input type="text" id="city" name="city" placeholder="e.g. Lucknow" required>
+            </div>
+
+            <div class="form-group">
+                <label for="image">Upload Clear Photograph</label>
+                <input type="file" id="image" name="image" accept="image/*" required>
+                <small>Format: JPG, PNG (Max 5MB)</small>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn-submit">Submit Case</button>
+                <a href="/dashboard" class="btn-cancel">Cancel</a>
+            </div>
+        </form>
+    </div>
+</body>
+</html>

@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Panel | LocateNet</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+
+<nav class="navbar navbar-dark bg-primary mb-4">
+    <div class="container">
+        <span class="navbar-brand fw-bold">LocateNet ADMIN</span>
+        <div class="d-flex align-items-center">
+            <span class="navbar-text me-3 text-white">Administrator: {{ user }}</span>
+            <a href="/logout" class="btn btn-outline-light btn-sm">Logout</a>
+        </div>
+    </div>
+</nav>
+
+<div class="container">
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card shadow-sm border-danger">
+                <div class="card-body text-center">
+                    <h5 class="text-muted">Total Missing (Global)</h5>
+                    <h2 class="display-4 fw-bold text-danger">{{ not_found }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card shadow-sm border-success">
+                <div class="card-body text-center">
+                    <h5 class="text-muted">Total Found (Global)</h5>
+                    <h2 class="display-4 fw-bold text-success">{{ found }}</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-5">
+        <div class="card-header bg-primary text-white">Global Case Distribution</div>
+        <div class="card-body p-0">{{ map|safe }}</div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-header bg-dark text-white">All Registered Cases</div>
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Person</th>
+                        <th>City</th>
+                        <th>Registered By</th> <th>Date</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for case in cases %}
+                    <tr>
+                        <td>{{ case['person_name'] }}</td>
+                        <td>{{ case['city'] }}</td>
+                        <td><span class="badge bg-secondary">{{ case['officer'] }}</span></td>
+                        <td>{{ case['date_reported'] }}</td>
+                        <td>
+                            {% if case['status'] == 'NF' %}
+                            <span class="badge bg-danger">Missing</span>
+                            {% else %}
+                            <span class="badge bg-success">Found</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if case['status'] == 'NF' %}
+                            <a href="/resolve/{{ case['id'] }}" class="btn btn-sm btn-success">Resolve</a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+</body>
+</html>

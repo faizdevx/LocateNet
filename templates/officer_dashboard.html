@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Officer Portal | LocateNet</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+
+<nav class="navbar navbar-dark bg-dark mb-4">
+    <div class="container">
+        <span class="navbar-brand">LocateNet Officer Portal</span>
+        <a href="/logout" class="btn btn-outline-light btn-sm">Logout</a>
+    </div>
+</nav>
+
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3>Officer: {{ user }}</h3>
+        <a href="/register_case" class="btn btn-success shadow">+ Register New Case</a>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-6 text-center">
+            <div class="p-3 bg-white border rounded shadow-sm">
+                <h6 class="text-muted">My Active Cases</h6>
+                <h3 class="text-danger">{{ not_found }}</h3>
+            </div>
+        </div>
+        <div class="col-md-6 text-center">
+            <div class="p-3 bg-white border rounded shadow-sm">
+                <h6 class="text-muted">My Resolved Cases</h6>
+                <h3 class="text-success">{{ found }}</h3>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-header bg-secondary text-white">My Assignments</div>
+        <table class="table table-striped mb-0">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>City</th>
+                    <th>Reported On</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for case in cases %}
+                {% if case['status'] == 'NF' %}
+                <tr>
+                    <td>{{ case['person_name'] }}</td>
+                    <td>{{ case['city'] }}</td>
+                    <td>{{ case['date_reported'] }}</td>
+                    <td><a href="/resolve/{{ case['id'] }}" class="btn btn-sm btn-outline-success">Mark Found</a></td>
+                </tr>
+                {% endif %}
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+</body>
+</html>
