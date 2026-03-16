@@ -7,6 +7,7 @@ DB_NAME = "database.db"
 def create_db():
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
+    
     # Cases Table
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS cases (
@@ -16,9 +17,12 @@ def create_db():
             officer TEXT,
             image_path TEXT,
             status TEXT,
-            date_reported TEXT
+            date_reported TEXT,
+            latitude REAL,
+            longitude REAL
         )
     """)
+    
     # Users Table
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS users (
@@ -27,7 +31,17 @@ def create_db():
             role TEXT,
             name TEXT
         )
-    """)
+    """) 
+
+    # Migration check to ensure latitude/longitude exist in cases table
+    cursor.execute("PRAGMA table_info(cases)")
+    columns = [column[1] for column in cursor.fetchall()]
+    
+    if 'latitude' not in columns:
+        cursor.execute("ALTER TABLE cases ADD COLUMN latitude REAL")
+    if 'longitude' not in columns:
+        cursor.execute("ALTER TABLE cases ADD COLUMN longitude REAL")
+
     conn.commit()
     conn.close()
 
@@ -57,14 +71,15 @@ def get_user_by_username(username):
 
 # --- CASE MANAGEMENT ---
 
-def add_case(officer, person_name, city, image_path):
+def add_case(officer, person_name, city, image_path, lat, lon):
+    """Saves a new case including the coordinates fetched from the API."""
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     cursor.execute("""
-        INSERT INTO cases (person_name, city, officer, image_path, status, date_reported) 
-        VALUES (?, ?, ?, ?, ?, ?)
-    """, (person_name, city, officer, image_path, "NF", current_time))
+        INSERT INTO cases (person_name, city, officer, image_path, status, date_reported, latitude, longitude) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    """, (person_name, city, officer, image_path, "NF", current_time, lat, lon))
     conn.commit()
     conn.close()
 
@@ -79,9 +94,7 @@ def get_case_by_id(case_id):
 
 # --- DASHBOARD DATA FUNCTIONS ---
 
-# ADDED THIS BACK TO FIX YOUR NameError
 def get_registered_cases_count(user, status):
-    """Fetches cases for a specific officer and status to count them."""
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute(
@@ -139,3 +152,13 @@ def get_case_counts_by_city():
     rows = cursor.fetchall()
     conn.close()
     return {row[0]: {"not_found": row[1], "found": row[2]} for row in rows}
+
+
+def get_unique_cities():
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    # Fetch unique cities from existing cases to populate a list
+    cursor.execute("SELECT DISTINCT city FROM cases")
+    cities = [row[0] for row in cursor.fetchall()]
+    conn.close()
+    return cities

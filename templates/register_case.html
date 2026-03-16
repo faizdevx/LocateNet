@@ -5,10 +5,34 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Register New Case | LocateNet</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css">
     <style>
         body { background-color: #f8f9fa; }
         .form-container { max-width: 600px; margin: 50px auto; }
         #imagePreview { max-width: 100%; height: 200px; object-fit: cover; display: none; border-radius: 8px; margin-top: 10px; }
+        
+        .ui-autocomplete {
+            max-height: 250px;
+            overflow-y: auto;
+            overflow-x: hidden;
+            z-index: 1050;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .loader-inline {
+            display: none;
+            width: 1rem;
+            height: 1rem;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            vertical-align: middle;
+            margin-left: 8px;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
@@ -40,8 +64,12 @@
                     </div>
 
                     <div class="mb-3">
-                        <label for="city" class="form-label fw-bold">Last Seen City</label>
-                        <input type="text" class="form-control" id="city" name="city" placeholder="e.g. Lucknow, Delhi" required>
+                        <label for="city_search" class="form-label fw-bold">
+                            Last Seen City 
+                            <div id="cityLoader" class="loader-inline"></div>
+                        </label>
+                        <input type="text" class="form-control" id="city_search" name="city" placeholder="Start typing (e.g. Lucknow, Mumbai...)" required autocomplete="off">
+                        <div id="cityStatus" class="form-text text-muted">Connecting to server for sync...</div>
                     </div>
 
                     <div class="mb-4">
@@ -52,7 +80,7 @@
                     </div>
 
                     <div class="d-grid gap-2">
-                        <button type="submit" class="btn btn-primary btn-lg">Submit Case to Database</button>
+                        <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">Submit Case to Database</button>
                         <a href="/dashboard" class="btn btn-outline-secondary">Cancel & Return</a>
                     </div>
                 </form>
@@ -64,6 +92,10 @@
     </div>
 </div>
 
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://code.jquery.com/ui/1.13.2/jquery-ui.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
 <script>
     function previewImage(event) {
         var reader = new FileReader();
@@ -74,8 +106,52 @@
         };
         reader.readAsDataURL(event.target.files[0]);
     }
+
+    $(document).ready(function() {
+        var cityList = [];
+        var $loader = $("#cityLoader");
+        var $status = $("#cityStatus");
+        var fallbackList = ["Mumbai", "Delhi", "Bangalore", "Hyderabad", "Ahmedabad", "Chennai", "Kolkata", "Surat", "Pune", "Jaipur", "Lucknow", "Kanpur", "Nagpur", "Indore", "Thane", "Bhopal"];
+
+        $loader.show();
+
+        $.getJSON("/api/get_cities")
+        .done(function(data) {
+            console.log("Server response:", data);
+            
+            // Check if data is actually an array and has items
+            if (Array.isArray(data) && data.length > 0) {
+                cityList = data;
+                $status.text("✅ Sync successful. City list loaded.").removeClass("text-muted").addClass("text-success");
+            } else {
+                console.warn("Server returned empty city list, using fallback.");
+                cityList = fallbackList;
+                $status.text("⚠️ Sync empty. Using local fallback.").addClass("text-warning");
+            }
+            
+            initAutocomplete(cityList);
+        })
+        .fail(function(jqXHR, textStatus, errorThrown) {
+            console.error("Sync failed:", textStatus, errorThrown);
+            cityList = fallbackList;
+            $status.text("⚠️ Sync failed. Using local fallback.").addClass("text-danger");
+            initAutocomplete(cityList);
+        })
+        .always(function() {
+            $loader.hide();
+        });
+
+        function initAutocomplete(list) {
+            $("#city_search").autocomplete({
+                source: function(request, response) {
+                    var results = $.ui.autocomplete.filter(list, request.term);
+                    response(results.slice(0, 15));
+                },
+                minLength: 1 // Suggest immediately on typing
+            });
+        }
+    });
 </script>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
