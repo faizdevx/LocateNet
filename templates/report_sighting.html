@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Report a Sighting - LocateNet</title>
+    <style>
+        body { font-family: sans-serif; margin: 40px; line-height: 1.6; }
+        .form-group { margin-bottom: 15px; }
+        .hidden { display: none; }
+        .container { max-width: 500px; margin: auto; border: 1px solid #ddd; padding: 20px; border-radius: 8px; }
+        button { background: #007bff; color: white; border: none; padding: 10px 20px; cursor: pointer; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Report a Sighting</h2>
+        <p>Your information helps us bring people home.</p>
+        <hr>
+        
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}
+            {% for message in messages %}
+              <p style="color: red;">{{ message }}</p>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        <form method="POST" enctype="multipart/form-data">
+            <div class="form-group">
+                <label><strong>Upload Type:</strong></label><br>
+                <input type="radio" name="upload_type" value="image" checked onclick="toggleUpload('image')"> Image
+                <input type="radio" name="upload_type" value="video" onclick="toggleUpload('video')"> Video
+            </div>
+
+            <div id="image_input" class="form-group">
+                <label>Upload Image:</label><br>
+                <input type="file" name="image" accept="image/*">
+            </div>
+
+            <div id="video_input" class="form-group hidden">
+                <label>Upload Video:</label><br>
+                <input type="file" name="video" accept="video/*">
+            </div>
+
+            <div class="form-group">
+                <input type="text" name="name" placeholder="Your Name" style="width:95%" required>
+            </div>
+
+            <div class="form-group">
+                <input type="text" name="mobile" placeholder="Mobile Number (10 digits)" style="width:95%" required>
+            </div>
+
+            <div class="form-group">
+                <input type="email" name="email" placeholder="Email (Optional)" style="width:95%">
+            </div>
+
+            <div class="form-group">
+                <input type="text" name="location" placeholder="Location where person was seen" style="width:95%" required>
+            </div>
+
+            <div class="form-group">
+                <textarea name="birth_marks" placeholder="Birth Marks / Identifying Features" style="width:95%; height:60px;"></textarea>
+            </div>
+
+            <button type="submit">Submit Sighting</button>
+            <a href="/" style="margin-left: 10px;">Back to Home</a>
+        </form>
+    </div>
+
+    <script>
+        function toggleUpload(type) {
+            if (type === 'image') {
+                document.getElementById('image_input').classList.remove('hidden');
+                document.getElementById('video_input').classList.add('hidden');
+            } else {
+                document.getElementById('image_input').classList.add('hidden');
+                document.getElementById('video_input').classList.remove('hidden');
+            }
+        }
+    </script>
+</body>
+</html>

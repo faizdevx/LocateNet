@@ -1,164 +1,221 @@
 import sqlite3
 import os 
+import cv2
+import numpy as np
+import json
+import mediapipe as mp
 from datetime import datetime
+from contextlib import contextmanager
 
+# --- DB CONFIG ---
 DB_NAME = "database.db"
 
-def create_db():
+@contextmanager
+def get_db_connection():
     conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    
-    # Cases Table
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS cases (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            person_name TEXT,
-            city TEXT,
-            officer TEXT,
-            image_path TEXT,
-            status TEXT,
-            date_reported TEXT,
-            latitude REAL,
-            longitude REAL
-        )
-    """)
-    
-    # Users Table
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS users (
-            username TEXT PRIMARY KEY,
-            password_hash TEXT,
-            role TEXT,
-            name TEXT
-        )
-    """) 
-
-    # Migration check to ensure latitude/longitude exist in cases table
-    cursor.execute("PRAGMA table_info(cases)")
-    columns = [column[1] for column in cursor.fetchall()]
-    
-    if 'latitude' not in columns:
-        cursor.execute("ALTER TABLE cases ADD COLUMN latitude REAL")
-    if 'longitude' not in columns:
-        cursor.execute("ALTER TABLE cases ADD COLUMN longitude REAL")
-
-    conn.commit()
-    conn.close()
-
-# --- AUTHENTICATION FUNCTIONS ---
-
-def add_new_user(username, password_hash, name, role="Officer"):
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
+    conn.row_factory = sqlite3.Row
     try:
-        cursor.execute("INSERT INTO users (username, password_hash, role, name) VALUES (?, ?, ?, ?)",
-                       (username, password_hash, role, name))
-        conn.commit()
-        return True
-    except sqlite3.IntegrityError:
-        return False 
+        yield conn
     finally:
         conn.close()
 
+# --- BIOMETRIC INITIALIZATION ---
+try:
+    import mediapipe.python.solutions.face_mesh as mp_face_mesh
+except (ImportError, AttributeError):
+    import mediapipe.solutions.face_mesh as mp_face_mesh
+
+face_mesh_processor = mp_face_mesh.FaceMesh(
+    static_image_mode=True, 
+    max_num_faces=1, 
+    min_detection_confidence=0.5
+)
+
+# --- DATA MODELS ---
+
+class PublicSubmissions:
+    def __init__(self, id, submitted_by, location, mobile, face_vector, email=None, birth_marks=None, status="NF"):
+        self.id = id
+        self.submitted_by = submitted_by
+        self.location = location
+        self.email = email
+        self.mobile = mobile
+        self.face_vector = face_vector 
+        self.birth_marks = birth_marks
+        self.status = status
+
+# --- CORE BIOMETRIC ENGINE ---
+
+def extract_face_vector(image_numpy):
+    if image_numpy is None: return None
+    rgb_image = cv2.cvtColor(image_numpy, cv2.COLOR_BGR2RGB)
+    results = face_mesh_processor.process(rgb_image)
+    if not results.multi_face_landmarks: return None
+    
+    landmarks = results.multi_face_landmarks[0].landmark
+    vector = np.array([[lm.x, lm.y, lm.z] for lm in landmarks]).flatten()
+    return vector.tolist()
+
+class MatchingEngine:
+    @staticmethod
+    def calculate_similarity(v1, v2):
+        vec1, vec2 = np.array(v1), np.array(v2)
+        dot_product = np.dot(vec1, vec2)
+        norm_v1 = np.linalg.norm(vec1)
+        norm_v2 = np.linalg.norm(vec2)
+        return (dot_product / (norm_v1 * norm_v2)) * 100
+
+    @staticmethod
+    def find_matches(sighting_id, sighting_vector, threshold=90.0):
+        """Compares sighting and automatically notifies the assigned officer via matches table."""
+        matches = []
+        current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        with get_db_connection() as conn:
+            # Query active cases
+            cases = conn.execute("SELECT id, person_name, officer, face_vector FROM cases WHERE status='NF'").fetchall()
+            for case in cases:
+                if case['face_vector']:
+                    stored_vector = json.loads(case['face_vector'])
+                    score = MatchingEngine.calculate_similarity(sighting_vector, stored_vector)
+                    
+                    if score >= threshold:
+                        # NOTIFICATION LOGIC: Save the match link
+                        conn.execute("""
+                            INSERT INTO matches (case_id, sighting_id, confidence, date_detected)
+                            VALUES (?, ?, ?, ?)
+                        """, (case['id'], sighting_id, round(score, 2), current_time))
+                        conn.commit()
+                        
+                        matches.append({
+                            "name": case['person_name'],
+                            "confidence": round(score, 2)
+                        })
+        return matches
+
+# --- REFINED DATABASE CORE ---
+
+def create_db():
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS cases (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                person_name TEXT, city TEXT, officer TEXT, image_path TEXT,
+                status TEXT, date_reported TEXT, latitude REAL, longitude REAL,
+                face_vector TEXT
+            )""")
+        cursor.execute("CREATE TABLE IF NOT EXISTS users (username TEXT PRIMARY KEY, password_hash TEXT, role TEXT, name TEXT)")
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS public_submissions (
+                id TEXT PRIMARY KEY, submitted_by TEXT, location TEXT, email TEXT, 
+                mobile TEXT, face_vector TEXT, birth_marks TEXT, status TEXT, date_submitted TEXT
+            )""")
+        # NEW: Notification Table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS matches (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                case_id INTEGER,
+                sighting_id TEXT,
+                confidence REAL,
+                is_read INTEGER DEFAULT 0,
+                date_detected TEXT,
+                FOREIGN KEY(case_id) REFERENCES cases(id)
+            )""")
+        conn.commit()
+
+# --- AUTH & DASHBOARD FUNCTIONS ---
+
+def add_new_user(username, password_hash, name, role="Officer"):
+    with get_db_connection() as conn:
+        try:
+            conn.execute("INSERT INTO users (username, password_hash, role, name) VALUES (?, ?, ?, ?)", 
+                         (username, password_hash, role, name))
+            conn.commit()
+            return True
+        except sqlite3.IntegrityError: return False 
+
 def get_user_by_username(username):
-    conn = sqlite3.connect(DB_NAME)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM users WHERE username = ?", (username,))
-    user = cursor.fetchone()
-    conn.close()
-    return user
+    with get_db_connection() as conn:
+        return conn.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
+
+def get_total_count(status):
+    try:
+        with get_db_connection() as conn:
+            result = conn.execute("SELECT COUNT(*) FROM cases WHERE status = ?", (status,)).fetchone()
+            return result[0] if result else 0
+    except sqlite3.OperationalError: return 0
+
+def get_all_cases(officer):
+    with get_db_connection() as conn:
+        return conn.execute("SELECT * FROM cases WHERE officer = ? ORDER BY date_reported DESC", (officer,)).fetchall()
 
 # --- CASE MANAGEMENT ---
 
-def add_case(officer, person_name, city, image_path, lat, lon):
-    """Saves a new case including the coordinates fetched from the API."""
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
+def add_case(officer, person_name, city, image_path, lat, lon, face_vector):
     current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    cursor.execute("""
-        INSERT INTO cases (person_name, city, officer, image_path, status, date_reported, latitude, longitude) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    """, (person_name, city, officer, image_path, "NF", current_time, lat, lon))
-    conn.commit()
-    conn.close()
+    with get_db_connection() as conn:
+        conn.execute("""
+            INSERT INTO cases (person_name, city, officer, image_path, status, date_reported, latitude, longitude, face_vector) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (person_name, city, officer, image_path, "NF", current_time, lat, lon, json.dumps(face_vector)))
+        conn.commit()
+
+class db_queries:
+    @staticmethod
+    def new_public_case(details: PublicSubmissions):
+        current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        with get_db_connection() as conn:
+            conn.execute("""
+                INSERT INTO public_submissions (id, submitted_by, location, email, mobile, face_vector, birth_marks, status, date_submitted)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (details.id, details.submitted_by, details.location, details.email, 
+                  details.mobile, details.face_vector, details.birth_marks, details.status, current_time))
+            conn.commit()
 
 def get_case_by_id(case_id):
-    conn = sqlite3.connect(DB_NAME)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM cases WHERE id = ?", (case_id,))
-    case = cursor.fetchone()
-    conn.close()
-    return case
-
-# --- DASHBOARD DATA FUNCTIONS ---
-
-def get_registered_cases_count(user, status):
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute(
-        "SELECT * FROM cases WHERE officer=? AND status=?",
-        (user, status)
-    )
-    rows = cursor.fetchall()
-    conn.close()
-    return rows
-
-def get_all_cases(officer):
-    conn = sqlite3.connect(DB_NAME)
-    conn.row_factory = sqlite3.Row 
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM cases WHERE officer = ? ORDER BY date_reported DESC", (officer,))
-    rows = cursor.fetchall()
-    conn.close()
-    return rows
-
-def get_all_cases_admin():
-    conn = sqlite3.connect(DB_NAME)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM cases ORDER BY date_reported DESC")
-    rows = cursor.fetchall()
-    conn.close()
-    return rows
-
-def get_total_count(status):
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute("SELECT COUNT(*) FROM cases WHERE status = ?", (status,))
-    result = cursor.fetchone()
-    count = result[0] if result else 0
-    conn.close()
-    return count
+    with get_db_connection() as conn:
+        return conn.execute("SELECT * FROM cases WHERE id = ?", (case_id,)).fetchone()
 
 def resolve_case(case_id):
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute("UPDATE cases SET status='F' WHERE id=?", (case_id,))
-    conn.commit()
-    conn.close()
+    with get_db_connection() as conn:
+        conn.execute("UPDATE cases SET status='F' WHERE id=?", (case_id,))
+        conn.commit()
+
+# --- UTILITIES ---
+
+def get_all_cases_admin():
+    try:
+        with get_db_connection() as conn:
+            return conn.execute("SELECT * FROM cases ORDER BY date_reported DESC").fetchall()
+    except sqlite3.OperationalError: return []
 
 def get_case_counts_by_city():
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute("""
-        SELECT city, 
-               SUM(CASE WHEN status = 'NF' THEN 1 ELSE 0 END) as not_found,
-               SUM(CASE WHEN status = 'F' THEN 1 ELSE 0 END) as found
-        FROM cases 
-        GROUP BY city
-    """)
-    rows = cursor.fetchall()
-    conn.close()
-    return {row[0]: {"not_found": row[1], "found": row[2]} for row in rows}
+    try:
+        with get_db_connection() as conn:
+            rows = conn.execute("""
+                SELECT city, SUM(CASE WHEN status = 'NF' THEN 1 ELSE 0 END) as not_found,
+                SUM(CASE WHEN status = 'F' THEN 1 ELSE 0 END) as found FROM cases GROUP BY city
+            """).fetchall()
+            return {row['city']: {"not_found": row['not_found'], "found": row['found']} for row in rows}
+    except sqlite3.OperationalError: return {}
 
+# --- UTILITY FUNCTIONS (Add to models.py) ---
 
-def get_unique_cities():
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    # Fetch unique cities from existing cases to populate a list
-    cursor.execute("SELECT DISTINCT city FROM cases")
-    cities = [row[0] for row in cursor.fetchall()]
-    conn.close()
-    return cities
+def image_obj_to_numpy(image_file):
+    """
+    Converts a Flask FileStorage object or a file path into a NumPy array 
+    that OpenCV can process for face detection.
+    """
+    try:
+        if hasattr(image_file, 'read'):
+            # If it's a file object from a form
+            file_bytes = np.frombuffer(image_file.read(), np.uint8)
+            # Reset the pointer so we can save the file later in app.py
+            image_file.seek(0) 
+            return cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
+        else:
+            # If it's a string path
+            return cv2.imread(image_file)
+    except Exception as e:
+        print(f"Error converting image to numpy: {e}")
+        return None

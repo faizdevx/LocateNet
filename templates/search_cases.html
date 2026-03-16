@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Search Cases | LocateNet</title>
+    <style>
+        :root {
+            --primary: #1a73e8;
+            --danger: #d93025;
+            --success: #1e8e3e;
+            --gray: #5f6368;
+            --light: #f1f3f4;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--light);
+            margin: 0;
+            padding: 20px;
+            color: #3c4043;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+            color: var(--primary);
+        }
+
+        .search-container {
+            margin-bottom: 30px;
+            display: flex;
+            gap: 10px;
+        }
+
+        #searchInput {
+            flex: 1;
+            padding: 14px 24px;
+            border: 1px solid #dadce0;
+            border-radius: 30px;
+            font-size: 16px;
+            outline: none;
+            transition: 0.2s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        #searchInput:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(26,115,232,0.2);
+        }
+
+        .case-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 25px;
+        }
+
+        .case-card {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: transform 0.2s, box-shadow 0.2s;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .case-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .case-img-wrapper {
+            width: 100%;
+            height: 250px;
+            background-color: #e8eaed;
+            position: relative;
+        }
+
+        .case-img-wrapper img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .status-badge {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: bold;
+            color: white;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .badge-nf { background-color: var(--danger); }
+        .badge-f { background-color: var(--success); }
+
+        .case-details {
+            padding: 20px;
+            flex-grow: 1;
+        }
+
+        .case-details h3 {
+            margin: 0 0 12px 0;
+            font-size: 20px;
+            color: #202124;
+        }
+
+        .info-row {
+            display: flex;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .info-label {
+            font-weight: bold;
+            color: var(--gray);
+            width: 80px;
+        }
+
+        .card-actions {
+            padding: 15px 20px;
+            border-top: 1px solid #f1f3f4;
+            background: #fafafa;
+        }
+
+        .btn-sighting {
+            display: block;
+            text-align: center;
+            text-decoration: none;
+            background: var(--primary);
+            color: white;
+            padding: 8px;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .btn-back {
+            text-decoration: none;
+            color: var(--primary);
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        #noResults {
+            text-align: center;
+            padding: 80px 20px;
+            display: none;
+            color: var(--gray);
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h1>Missing Persons Registry</h1>
+        <a href="/" class="btn-back">← Back to Portal</a>
+    </div>
+
+    <div class="search-container">
+        <input type="text" id="searchInput" placeholder="Search by name or city..." onkeyup="filterCases()">
+    </div>
+
+    <div id="noResults">
+        <p>No cases found matching your search. Try a different keyword.</p>
+    </div>
+
+    <div class="case-grid" id="caseGrid">
+        {% for case in cases %}
+        <div class="case-card" data-name="{{ case.person_name.lower() }}" data-city="{{ case.city.lower() }}">
+            <div class="case-img-wrapper">
+                <img src="{{ url_for('uploaded_file', filename=case.image_path.split('/')[-1]) }}" alt="{{ case.person_name }}">
+                
+                <span class="status-badge {{ 'badge-nf' if case.status == 'NF' else 'badge-f' }}">
+                    {{ 'Missing' if case.status == 'NF' else 'Found' }}
+                </span>
+            </div>
+            <div class="case-details">
+                <h3>{{ case.person_name }}</h3>
+                <div class="info-row">
+                    <span class="info-label">City:</span>
+                    <span>{{ case.city }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Reported:</span>
+                    <span>{{ case.date_reported.split(' ')[0] }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Case ID:</span>
+                    <span>#{{ case.id }}</span>
+                </div>
+            </div>
+            {% if case.status == 'NF' %}
+            <div class="card-actions">
+                <a href="/report_sighting" class="btn-sighting">Report a Sighting</a>
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+    function filterCases() {
+        const input = document.getElementById('searchInput').value.toLowerCase();
+        const cards = document.getElementsByClassName('case-card');
+        const noResults = document.getElementById('noResults');
+        let found = 0;
+
+        for (let i = 0; i < cards.length; i++) {
+            const name = cards[i].getAttribute('data-name');
+            const city = cards[i].getAttribute('data-city');
+            
+            if (name.includes(input) || city.includes(input)) {
+                cards[i].style.display = "flex";
+                found++;
+            } else {
+                cards[i].style.display = "none";
+            }
+        }
+
+        noResults.style.display = (found === 0) ? "block" : "none";
+    }
+</script>
+
+</body>
+</html>
