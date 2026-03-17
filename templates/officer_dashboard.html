@@ -68,6 +68,10 @@
                     <div class="small text-muted italic">Reported by {{ alert.submitted_by }} on {{ alert.date_detected }}</div>
                 </div>
                 <div class="text-end">
+                    <a href="/sighting/{{ alert.sighting_id }}" class="btn btn-sm btn-primary mb-2" title="View Sighting">
+                        <i class="bi bi-images"></i> View Faces
+                    </a>
+                    <br>
                     <a href="/mark_read/{{ alert.id }}" class="btn btn-sm btn-outline-secondary" title="Dismiss Alert">
                         <i class="bi bi-check2-all"></i> Dismiss
                     </a>

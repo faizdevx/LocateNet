@@ -65,6 +65,11 @@ def login_required(f):
 def uploaded_file(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
+
+@app.route('/resources/<path:filename>')
+def resource_file(filename):
+    return send_from_directory(app.config['RESOURCES_FOLDER'], filename)
+
 @app.route("/api/get_cities")
 def get_cities_api():
     try:
@@ -161,24 +166,34 @@ def report_sighting():
             details = PublicSubmissions(
                 id=unique_id, submitted_by=name, location=location,
                 email=email, mobile=mobile, face_vector=json.dumps(primary_vector),
-                birth_marks=birth_marks, status="NF"
+                birth_marks=birth_marks, status="NF", image_path=f"resources/{filename}"
             )
             db_queries.new_public_case(details)
 
             # 5. Filter Matches (Hide Resolved Cases)
-            valid_alerts = []
+            faces_detected_count = 0
+            matches_found_count = 0
 
-            for match in results:
-                if match['id'] == -1:
+            for face_data in results:
+                db_queries.save_sighting_face({
+                    "sighting_id": unique_id,
+                    "face_crop_path": face_data["face_crop_path"],
+                    "match_id": face_data["id"],
+                    "percentage": face_data["confidence"],
+                    "category": face_data["category"],
+                    "bbox": face_data["bbox"],
+                })
+                faces_detected_count += 1
+
+                if face_data["id"] == -1:
                     continue
 
-                case = get_case_by_id(match['id'])
-
-                if case and case['status'] == 'NF':
-                    valid_alerts.append(match)
-                    add_match_to_db(case['id'], unique_id, match['confidence'])
-                elif case and case['status'] == 'F':
-                    logging.info(f"AI spotted resolved person ID {match['id']}. Ignoring alert.")
+                case = db_queries.get_case_by_id(face_data["id"])
+                if case and case["status"] == "NF":
+                    matches_found_count += 1
+                    add_match_to_db(face_data["id"], unique_id, face_data["confidence"])
+                elif case and case["status"] == "F":
+                    logging.info(f"AI spotted resolved person ID {face_data['id']}. Ignoring alert.")
 
             # 6. Step 11: Hotspot Alert Logic
             is_hotspot, count = AlertService.check_repeated_sightings(location, location, "face")
@@ -186,11 +201,10 @@ def report_sighting():
                 flash(f"🔥 HOTSPOT: This person has been seen {count} times in this area recently!")
 
             # 7. Final Response to User
-            if valid_alerts:
-                top_match = max(valid_alerts, key=lambda x: x['confidence'])
-                flash(f"Match Found! {top_match['confidence']}% confidence.")
+            if matches_found_count > 0:
+                flash(f"Success: {faces_detected_count} faces detected in group. {matches_found_count} matches identified! Officer notified.")
             else:
-                flash("Sighting recorded. No active missing persons matched.")
+                flash(f"Sighting recorded. {faces_detected_count} faces detected, but no immediate active matches found above threshold.")
 
         except Exception as e:
                  logging.error(f"Sighting Error: {str(e)}")
@@ -250,6 +264,18 @@ def mark_read(alert_id):
         conn.execute("UPDATE matches SET is_read = 1 WHERE id = ?", (alert_id,))
         conn.commit()
     return redirect(url_for("dashboard"))
+
+
+@app.route("/sighting/<string:sighting_id>")
+@login_required
+def sighting_detail(sighting_id):
+    sighting = db_queries.get_public_submission_by_id(sighting_id)
+    if not sighting:
+        flash("Sighting not found.")
+        return redirect(url_for("dashboard"))
+
+    faces = db_queries.get_sighting_faces(sighting_id)
+    return render_template("officer_sighting_detail.html", sighting=sighting, faces=faces)
 
 @app.route("/register_case", methods=["GET", "POST"])
 @login_required

@@ -64,7 +64,7 @@ def get_recent_sightings(limit=10):
 # --- DATA MODELS --- #
 
 class PublicSubmissions:
-    def __init__(self, id, submitted_by, location, mobile, face_vector, email=None, birth_marks=None, status="NF"):
+    def __init__(self, id, submitted_by, location, mobile, face_vector, email=None, birth_marks=None, status="NF", image_path=None):
         self.id = id
         self.submitted_by = submitted_by
         self.location = location
@@ -73,6 +73,7 @@ class PublicSubmissions:
         self.face_vector = face_vector 
         self.birth_marks = birth_marks
         self.status = status
+        self.image_path = image_path
 
 # --- CORE BIOMETRIC ENGINE ---
 
@@ -139,8 +140,12 @@ def create_db():
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS public_submissions (
                 id TEXT PRIMARY KEY, submitted_by TEXT, location TEXT, email TEXT, 
-                mobile TEXT, face_vector TEXT, birth_marks TEXT, status TEXT, date_submitted TEXT
+                mobile TEXT, face_vector TEXT, birth_marks TEXT, status TEXT, date_submitted TEXT,
+                image_path TEXT
             )""")
+        columns = [row[1] for row in cursor.execute("PRAGMA table_info(public_submissions)").fetchall()]
+        if "image_path" not in columns:
+            cursor.execute("ALTER TABLE public_submissions ADD COLUMN image_path TEXT")
         
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS matches (
@@ -151,6 +156,20 @@ def create_db():
                 is_read INTEGER DEFAULT 0,
                 date_detected TEXT,
                 FOREIGN KEY(case_id) REFERENCES cases(id)
+            )""")
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS sighting_faces (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                sighting_id TEXT NOT NULL,
+                face_crop_path TEXT NOT NULL,
+                match_id INTEGER,
+                percentage REAL,
+                category TEXT,
+                bbox TEXT,
+                created_at TEXT,
+                FOREIGN KEY(sighting_id) REFERENCES public_submissions(id),
+                FOREIGN KEY(match_id) REFERENCES cases(id)
             )""")
 
         # NEW: Sightings Table
@@ -220,11 +239,67 @@ class db_queries:
         current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         with get_db_connection() as conn:
             conn.execute("""
-                INSERT INTO public_submissions (id, submitted_by, location, email, mobile, face_vector, birth_marks, status, date_submitted)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO public_submissions (id, submitted_by, location, email, mobile, face_vector, birth_marks, status, date_submitted, image_path)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (details.id, details.submitted_by, details.location, details.email, 
-                  details.mobile, details.face_vector, details.birth_marks, details.status, current_time))
+                  details.mobile, details.face_vector, details.birth_marks, details.status, current_time, details.image_path))
             conn.commit()
+
+    @staticmethod
+    def save_sighting_face(face_data):
+        current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        bbox = face_data.get("bbox")
+        bbox_json = None
+        if bbox is not None:
+            bbox_json = json.dumps([int(v) for v in bbox])
+
+        match_id = face_data.get("match_id")
+        percentage = face_data.get("percentage")
+        with get_db_connection() as conn:
+            conn.execute("""
+                INSERT INTO sighting_faces (sighting_id, face_crop_path, match_id, percentage, category, bbox, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (
+                face_data["sighting_id"],
+                face_data["face_crop_path"],
+                int(match_id) if match_id is not None else None,
+                float(percentage) if percentage is not None else None,
+                face_data.get("category"),
+                bbox_json,
+                current_time,
+            ))
+            conn.commit()
+
+    @staticmethod
+    def get_case_by_id(case_id):
+        with get_db_connection() as conn:
+            return conn.execute("SELECT * FROM cases WHERE id = ?", (case_id,)).fetchone()
+
+    @staticmethod
+    def get_public_submission_by_id(sighting_id):
+        with get_db_connection() as conn:
+            return conn.execute(
+                "SELECT * FROM public_submissions WHERE id = ?",
+                (sighting_id,),
+            ).fetchone()
+
+    @staticmethod
+    def get_sighting_faces(sighting_id):
+        with get_db_connection() as conn:
+            rows = conn.execute("""
+                SELECT sf.*, c.person_name AS matched_person_name
+                FROM sighting_faces sf
+                LEFT JOIN cases c ON sf.match_id = c.id
+                WHERE sf.sighting_id = ?
+                ORDER BY sf.id ASC
+            """, (sighting_id,)).fetchall()
+
+        faces = []
+        for row in rows:
+            face = dict(row)
+            face["bbox"] = json.loads(face["bbox"]) if face.get("bbox") else None
+            faces.append(face)
+        return faces
 
 def get_case_by_id(case_id):
     with get_db_connection() as conn:
