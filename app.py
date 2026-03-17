@@ -9,10 +9,15 @@ from flask import Flask, render_template, request, redirect, session, flash, jso
 from werkzeug.utils import secure_filename
 from geopy.geocoders import Nominatim
 from geopy.exc import GeocoderTimedOut
+import logging
 
 # Internal project imports
 from models import *
-
+from services.alert_service import AlertService
+from services.face_service import FaceService
+from services.reid_service import ReIDService
+from vector_db.search_service import SearchService
+from pipeline.detection_pipeline import DetectionPipeline
 app = Flask(__name__)
 app.secret_key = "super_secret_locate_net_key"
 
@@ -23,6 +28,14 @@ RESOURCES_FOLDER = os.path.join(BASE_DIR, "resources")
 
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 app.config["RESOURCES_FOLDER"] = RESOURCES_FOLDER
+
+
+# --- AI PIPELINE INITIALIZATION (ADD THIS HERE) ---
+# These must be global so all routes can access them
+face_svc = FaceService()
+reid_svc = ReIDService()
+search_svc = SearchService()
+pipeline = DetectionPipeline(face_svc, reid_svc, search_svc)
 
 CITY_COORDS_FALLBACK = {
     "Delhi": [28.6139, 77.2090],
@@ -72,6 +85,15 @@ def get_coords(city_name):
         pass
     return CITY_COORDS_FALLBACK.get(city_name, (None, None))
 
+
+def add_match_to_db(case_id, sighting_id, confidence):
+    with get_db_connection() as conn:
+        conn.execute("""
+            INSERT INTO matches (case_id, sighting_id, confidence, date_detected)
+            VALUES (?, ?, ?, ?)
+        """, (case_id, sighting_id, confidence, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+        conn.commit()
+
 def create_map():
     m = folium.Map(location=[22.9734, 78.6569], zoom_start=5, tiles="CartoDB positron")
     data = get_case_counts_by_city()
@@ -104,49 +126,79 @@ def search_cases():
 @app.route("/report_sighting", methods=["GET", "POST"])
 def report_sighting():
     if request.method == "POST":
-        name, mobile, location = request.form.get("name"), request.form.get("mobile"), request.form.get("location")
-        email, birth_marks = request.form.get("email"), request.form.get("birth_marks")
+        start_time = time.time()
+        name = request.form.get("name")
+        mobile = request.form.get("mobile")
+        location = request.form.get("location")
+        email = request.form.get("email")
+        birth_marks = request.form.get("birth_marks")
         file = request.files.get("image")
 
+        # 1. Validation
         if not all([name, mobile, location, file]) or len(mobile) != 10:
-            flash("Provide Name, 10-digit Mobile, Location, and Image.")
+            flash("Please provide your Name, 10-digit Mobile, Location, and an Image.")
             return redirect(url_for("report_sighting"))
 
+        # 2. Save Sighting Image
         unique_id = str(uuid.uuid4())
-        filepath = os.path.join(app.config["RESOURCES_FOLDER"], f"{unique_id}.jpg")
+        filename = f"sighting_{unique_id}.jpg"
+        filepath = os.path.join(app.config["RESOURCES_FOLDER"], filename)
         file.save(filepath)
         
         try:
-            image_numpy = image_obj_to_numpy(open(filepath, "rb"))
-            sighting_vector = extract_face_vector(image_numpy)
+            # 3. Process via AI Pipeline (Handles Groups & Higher Accuracy)
+            image_np = cv2.imread(filepath)
+            results = pipeline.process_frame(image_np)
+            inference_time = time.time() - start_time
             
-            if not sighting_vector:
-                os.remove(filepath)
-                flash("No face detected. Use a clearer photo.")
-                return redirect(url_for("report_sighting"))
+            # Log the performance
+            logging.info(f"Inference: {inference_time:.2f}s | ID: {unique_id}")
 
-            # 1. Save submission to DB first so find_matches can link it
+            # 4. Save Public Submission to SQL
+            # We use the first face detected for the primary record, or an empty list if none
+            primary_vector = results[0]['embedding'] if (results and 'embedding' in results[0]) else []
+            
             details = PublicSubmissions(
                 id=unique_id, submitted_by=name, location=location,
-                email=email, mobile=mobile, face_vector=json.dumps(sighting_vector),
+                email=email, mobile=mobile, face_vector=json.dumps(primary_vector),
                 birth_marks=birth_marks, status="NF"
             )
             db_queries.new_public_case(details)
 
-            # 2. MATCHING ENGINE (Now passes unique_id to create matches)
-            matches = MatchingEngine.find_matches(unique_id, sighting_vector, threshold=90.0)
+            # 5. Filter Matches (Hide Resolved Cases)
+            valid_alerts = []
 
-            if matches:
-                flash(f"Match found! ({matches[0]['confidence']}% confidence). Officer notified.")
+            for match in results:
+                if match['id'] == -1:
+                    continue
+
+                case = get_case_by_id(match['id'])
+
+                if case and case['status'] == 'NF':
+                    valid_alerts.append(match)
+                    add_match_to_db(case['id'], unique_id, match['confidence'])
+                elif case and case['status'] == 'F':
+                    logging.info(f"AI spotted resolved person ID {match['id']}. Ignoring alert.")
+
+            # 6. Step 11: Hotspot Alert Logic
+            is_hotspot, count = AlertService.check_repeated_sightings(location, location, "face")
+            if is_hotspot:
+                flash(f"🔥 HOTSPOT: This person has been seen {count} times in this area recently!")
+
+            # 7. Final Response to User
+            if valid_alerts:
+                top_match = max(valid_alerts, key=lambda x: x['confidence'])
+                flash(f"Match Found! {top_match['confidence']}% confidence.")
             else:
-                flash("Sighting reported. No matches found.")
+                flash("Sighting recorded. No active missing persons matched.")
 
         except Exception as e:
-            flash(f"Error: {str(e)}")
+                 logging.error(f"Sighting Error: {str(e)}")
+                 flash(f"Error: {str(e)}") # This will show the real error on the screen
 
         return redirect(url_for("report_sighting"))
+        
     return render_template("report_sighting.html")
-
 # --- AUTH & DASHBOARD ROUTES ---
 
 @app.route("/login", methods=["GET", "POST"])
@@ -203,24 +255,58 @@ def mark_read(alert_id):
 @login_required
 def register_case():
     if request.method == "POST":
-        person_name, city = request.form.get("person_name"), request.form.get("city")
+        person_name = request.form.get("person_name")
+        city = request.form.get("city")
         file = request.files.get('image')
-        if person_name and city and file:
-            image_numpy = image_obj_to_numpy(file)
-            vector = extract_face_vector(image_numpy)
-            if not vector:
-                flash("Face not detected. Try again.")
-                return redirect(url_for("register_case"))
+        
+        if not (person_name and city and file):
+            flash("All fields are required.")
+            return redirect(url_for("register_case"))
 
-            filename = f"{int(time.time())}_{secure_filename(file.filename)}"
-            filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
-            file.seek(0) 
-            file.save(filepath)
-            
-            lat, lon = get_coords(city)
-            add_case(session["user"], person_name, city, f"uploads/{filename}", lat, lon, vector)
-            flash(f"Case for {person_name} registered.")
-            return redirect(url_for("dashboard"))
+        # 1. Convert file to numpy for AI processing
+        image_numpy = image_obj_to_numpy(file)
+        
+        # 2. Extract high-accuracy embedding (using FaceService, not MediaPipe)
+        # This fixes the accuracy issues with Ali vs Atharv
+        face_vector = face_svc.get_single_embedding(image_numpy)
+        
+        if face_vector is None:
+            flash("❌ Face not detected. Please provide a clear, front-facing photo.")
+            return redirect(url_for("register_case"))
+
+        # 3. Save the physical file
+        filename = f"{int(time.time())}_{secure_filename(file.filename)}"
+        filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+        file.seek(0) 
+        file.save(filepath)
+        
+        # 4. Add to SQLite Database first so FAISS can store the real case id
+        lat, lon = get_coords(city)
+        # Convert numpy vector to list so it can be JSON serialized
+        vector_list = face_vector.tolist() if hasattr(face_vector, 'tolist') else face_vector
+        
+        case_id = add_case(
+            officer=session["user"], 
+            person_name=person_name, 
+            city=city, 
+            image_path=f"uploads/{filename}", 
+            lat=lat, 
+            lon=lon, 
+            face_vector=vector_list
+        )
+
+        # 5. Enroll into AI Pipeline & persist Vector DB
+        enrolled = pipeline.enroll_new_person(image_numpy, person_id=case_id, name=person_name)
+        search_svc.save_index()
+        
+        if enrolled:
+            flash(f"Success: Case for {person_name} registered and added to the vector database.")
+        else:
+            flash(f"Success: Case for {person_name} registered, but no face embedding was enrolled.")
+        logging.info(f"New Case Registered: {person_name} by {session['user']}")
+        
+        return redirect(url_for("dashboard"))
+
     return render_template("register_case.html", user=session.get("name"))
 
 @app.route("/resolve/<int:case_id>")
@@ -267,6 +353,31 @@ def create_officer():
             flash("Username already exists. Choose another.", "danger")
 
     return render_template("create_officer.html")
+
+
+@app.route("/admin/logs")
+@login_required
+def view_logs():
+    if session.get("role") != "Admin":
+        return redirect(url_for("dashboard"))
+    
+    log_path = os.path.join(BASE_DIR, "logs", "system.log")
+    if os.path.exists(log_path):
+        with open(log_path, "r") as f:
+            lines = f.readlines()[-50:]  # Get last 50 entries
+        return render_template("logs.html", logs=lines)
+    return "No logs found."
+
+
+
+# --- STEP 12: LOGGING CONFIGURATION ---
+os.makedirs("logs", exist_ok=True)
+logging.basicConfig(
+    filename='logs/system.log',
+    level=logging.INFO,
+    format='%(asctime)s | %(levelname)s | %(message)s'
+)
+
 
 if __name__ == "__main__":
     create_db()

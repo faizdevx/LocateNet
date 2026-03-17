@@ -1,2 +1,28 @@
-___pycache__/
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
 venv/
+.venv/
+env/
+ENV/
+
+# Tooling caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local databases and runtime output
+*.db
+*.sqlite3
+logs/
+uploads/
+
+# Vector database artifacts
+vector_db/storage/
+
+# OS/editor noise
+.DS_Store
+Thumbs.db

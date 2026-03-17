@@ -2,6 +2,12 @@ import sqlite3
 import bcrypt
 from models import create_db, DB_NAME
 
+# New imports for AI services
+from services.face_service import FaceService
+from services.reid_service import ReIDService
+from vector_db.search_service import SearchService
+from pipeline.detection_pipeline import DetectionPipeline
+
 def bootstrap_admin():
     # 1. Create the tables
     create_db()
@@ -28,5 +34,30 @@ def bootstrap_admin():
     finally:
         conn.close()
 
+def init_ai_systems():
+    """
+    Initializes AI models once at startup to save memory and processing time.
+    """
+    print("🤖 Initializing AI Systems...")
+    
+    # Instantiate services
+    face_service = FaceService()
+    reid_service = ReIDService()
+    search_service = SearchService()
+
+    # Initialize the pipeline with the services
+    pipeline = DetectionPipeline(
+        face_service,
+        reid_service,
+        search_service
+    )
+    
+    print("✅ AI Systems Ready.")
+    return pipeline
+
 if __name__ == "__main__":
+    # Run Database Setup
     bootstrap_admin()
+    
+    # Run AI System Initialization
+    pipeline = init_ai_systems()

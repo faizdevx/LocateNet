@@ -5,12 +5,14 @@
     <title>Officer Portal | LocateNet</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
     <style>
         .map-container { height: 350px; width: 100%; border-radius: 0 0 8px 8px; overflow: hidden; }
         .stat-card { transition: 0.3s; border: none; }
         .stat-card:hover { transform: scale(1.02); }
         .alert-item { transition: 0.2s; border-left: 4px solid #ffc107; }
         .alert-item:hover { background-color: #fff9e6; }
+        .hotspot-card { border: 2px solid #dc3545; background-color: #fff5f5; }
     </style>
 </head>
 <body class="bg-light">
@@ -26,6 +28,22 @@
 </nav>
 
 <div class="container">
+
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        {% for message in messages %}
+          {% if 'HOTSPOT' in message %}
+            <div class="alert hotspot-card animate__animated animate__pulse animate__infinite d-flex align-items-center mb-4 shadow-sm" role="alert">
+                <i class="bi bi-fire fs-3 me-3 text-danger"></i>
+                <div>
+                    <strong class="text-danger">High Priority Hotspot Detected</strong><br>
+                    {{ message }}
+                </div>
+            </div>
+          {% endif %}
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
     
     {% if alerts %}
     <div class="card shadow-sm border-0 mb-4">
@@ -37,10 +55,15 @@
             {% for alert in alerts %}
             <div class="list-group-item alert-item d-flex justify-content-between align-items-center p-3">
                 <div>
-                    <h6 class="mb-1 fw-bold text-danger">Match Detected: {{ alert.person_name }}</h6>
+                    <div class="d-flex align-items-center mb-1">
+                        <h6 class="mb-0 fw-bold text-danger">Match Detected: {{ alert.person_name }}</h6>
+                        <span class="badge bg-info text-dark ms-2 small">
+                            <i class="bi bi-person-bounding-box"></i> Biometric
+                        </span>
+                    </div>
                     <p class="mb-1 small text-muted">
                         <i class="bi bi-geo-alt-fill"></i> Sighted at: <strong>{{ alert.location }}</strong> | 
-                        <i class="bi bi-cpu-fill"></i> Confidence: <strong>{{ alert.confidence }}%</strong>
+                        <i class="bi bi-cpu-fill"></i> AI Confidence: <strong>{{ alert.confidence }}%</strong>
                     </p>
                     <div class="small text-muted italic">Reported by {{ alert.submitted_by }} on {{ alert.date_detected }}</div>
                 </div>
@@ -64,7 +87,7 @@
         <div class="col-md-6">
             <div class="card stat-card shadow-sm bg-white border-start border-danger border-4">
                 <div class="card-body text-center">
-                    <h6 class="text-uppercase text-muted small fw-bold">My Active Cases</h6>
+                    <h6 class="text-uppercase text-muted small fw-bold">Active Cases</h6>
                     <h2 class="text-danger fw-bold mb-0">{{ not_found }}</h2>
                 </div>
             </div>
@@ -72,7 +95,7 @@
         <div class="col-md-6">
             <div class="card stat-card shadow-sm bg-white border-start border-success border-4">
                 <div class="card-body text-center">
-                    <h6 class="text-uppercase text-muted small fw-bold">My Resolved Cases</h6>
+                    <h6 class="text-uppercase text-muted small fw-bold">Resolved Cases</h6>
                     <h2 class="text-success fw-bold mb-0">{{ found }}</h2>
                 </div>
             </div>
@@ -80,7 +103,10 @@
     </div>
 
     <div class="card shadow-sm mb-4">
-        <div class="card-header bg-secondary text-white small fw-bold">Regional Distribution</div>
+        <div class="card-header bg-secondary text-white small fw-bold d-flex justify-content-between">
+            <span>Regional Distribution</span>
+            <span class="small">Real-time GPS Tracking</span>
+        </div>
         <div class="card-body p-0">
             <div class="map-container">
                 {{ map|safe }}
@@ -95,8 +121,8 @@
                 <thead class="table-light">
                     <tr>
                         <th>Missing Person</th>
-                        <th>City</th>
-                        <th>Reported On</th>
+                        <th>Last Known City</th>
+                        <th>Date Reported</th>
                         <th class="text-end">Action</th>
                     </tr>
                 </thead>
@@ -104,13 +130,15 @@
                     {% for case in cases %}
                         {% if case['status'] == 'NF' %}
                         <tr>
-                            <td class="fw-bold">{{ case['person_name'] }}</td>
-                            <td><span class="text-muted">{{ case['city'] }}</span></td>
-                            <td class="small">{{ case['date_reported'] }}</td>
+                            <td class="fw-bold">
+                                <i class="bi bi-person-fill text-muted me-2"></i>{{ case['person_name'] }}
+                            </td>
+                            <td><span class="badge bg-light text-dark border">{{ case['city'] }}</span></td>
+                            <td class="small text-muted">{{ case['date_reported'] }}</td>
                             <td class="text-end">
                                 <a href="/resolve/{{ case['id'] }}" 
-                                   class="btn btn-sm btn-success px-3"
-                                   onclick="return confirm('Has this person been safely located?')">
+                                   class="btn btn-sm btn-success px-3 shadow-sm"
+                                   onclick="return confirm('Confirm safe recovery of {{ case['person_name'] }}?')">
                                    Mark Found
                                 </a>
                             </td>
@@ -119,7 +147,7 @@
                     {% endfor %}
                     {% if not_found == 0 %}
                     <tr>
-                        <td colspan="4" class="text-center py-4 text-muted italic">No active cases assigned to you.</td>
+                        <td colspan="4" class="text-center py-4 text-muted small">No active cases assigned to you.</td>
                     </tr>
                     {% endif %}
                 </tbody>
@@ -129,7 +157,7 @@
 </div>
 
 <footer class="text-center py-5 text-muted small">
-    LocateNet Internal Officer Portal &copy; 2026
+    LocateNet Internal Officer Portal &copy; 2026 | System Version: AI-Alpha-01
 </footer>
 
 </body>

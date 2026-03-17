@@ -31,7 +31,37 @@ face_mesh_processor = mp_face_mesh.FaceMesh(
     min_detection_confidence=0.5
 )
 
-# --- DATA MODELS ---
+
+
+# --- SIGHTING & EMBEDDING MANAGEMENT ---
+
+def add_sighting(embedding_type, vector, location, image_path):
+    """
+    Logs a new detection (face or body) into the sightings table.
+    """
+    current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO sightings (embedding_type, embedding_vector, location, timestamp, image_path)
+            VALUES (?, ?, ?, ?, ?)
+        """, (embedding_type, json.dumps(vector), location, current_time, image_path))
+        conn.commit()
+        return cursor.lastrowid
+
+def get_recent_sightings(limit=10):
+    """
+    Fetches the latest sightings for the dashboard.
+    """
+    with get_db_connection() as conn:
+        return conn.execute("""
+            SELECT * FROM sightings 
+            ORDER BY timestamp DESC 
+            LIMIT ?
+        """, (limit,)).fetchall()
+    
+    
+# --- DATA MODELS --- #
 
 class PublicSubmissions:
     def __init__(self, id, submitted_by, location, mobile, face_vector, email=None, birth_marks=None, status="NF"):
@@ -67,11 +97,9 @@ class MatchingEngine:
 
     @staticmethod
     def find_matches(sighting_id, sighting_vector, threshold=90.0):
-        """Compares sighting and automatically notifies the assigned officer via matches table."""
         matches = []
         current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         with get_db_connection() as conn:
-            # Query active cases
             cases = conn.execute("SELECT id, person_name, officer, face_vector FROM cases WHERE status='NF'").fetchall()
             for case in cases:
                 if case['face_vector']:
@@ -79,7 +107,6 @@ class MatchingEngine:
                     score = MatchingEngine.calculate_similarity(sighting_vector, stored_vector)
                     
                     if score >= threshold:
-                        # NOTIFICATION LOGIC: Save the match link
                         conn.execute("""
                             INSERT INTO matches (case_id, sighting_id, confidence, date_detected)
                             VALUES (?, ?, ?, ?)
@@ -97,6 +124,8 @@ class MatchingEngine:
 def create_db():
     with get_db_connection() as conn:
         cursor = conn.cursor()
+        
+        # Original Tables
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS cases (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -104,13 +133,15 @@ def create_db():
                 status TEXT, date_reported TEXT, latitude REAL, longitude REAL,
                 face_vector TEXT
             )""")
+        
         cursor.execute("CREATE TABLE IF NOT EXISTS users (username TEXT PRIMARY KEY, password_hash TEXT, role TEXT, name TEXT)")
+        
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS public_submissions (
                 id TEXT PRIMARY KEY, submitted_by TEXT, location TEXT, email TEXT, 
                 mobile TEXT, face_vector TEXT, birth_marks TEXT, status TEXT, date_submitted TEXT
             )""")
-        # NEW: Notification Table
+        
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS matches (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -121,6 +152,28 @@ def create_db():
                 date_detected TEXT,
                 FOREIGN KEY(case_id) REFERENCES cases(id)
             )""")
+
+        # NEW: Sightings Table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS sightings (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                embedding_type TEXT, -- 'face' or 'body'
+                embedding_vector TEXT, -- JSON string of the vector
+                location TEXT,
+                timestamp TEXT,
+                image_path TEXT
+            )""")
+
+        # NEW: Global Embeddings Table (For master vector storage)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS embeddings (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                entity_id TEXT, -- case_id or user_id
+                entity_type TEXT,
+                vector TEXT,
+                created_at TEXT
+            )""")
+            
         conn.commit()
 
 # --- AUTH & DASHBOARD FUNCTIONS ---
@@ -154,11 +207,12 @@ def get_all_cases(officer):
 def add_case(officer, person_name, city, image_path, lat, lon, face_vector):
     current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     with get_db_connection() as conn:
-        conn.execute("""
+        cursor = conn.execute("""
             INSERT INTO cases (person_name, city, officer, image_path, status, date_reported, latitude, longitude, face_vector) 
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (person_name, city, officer, image_path, "NF", current_time, lat, lon, json.dumps(face_vector)))
         conn.commit()
+        return cursor.lastrowid
 
 class db_queries:
     @staticmethod
@@ -199,22 +253,13 @@ def get_case_counts_by_city():
             return {row['city']: {"not_found": row['not_found'], "found": row['found']} for row in rows}
     except sqlite3.OperationalError: return {}
 
-# --- UTILITY FUNCTIONS (Add to models.py) ---
-
 def image_obj_to_numpy(image_file):
-    """
-    Converts a Flask FileStorage object or a file path into a NumPy array 
-    that OpenCV can process for face detection.
-    """
     try:
         if hasattr(image_file, 'read'):
-            # If it's a file object from a form
             file_bytes = np.frombuffer(image_file.read(), np.uint8)
-            # Reset the pointer so we can save the file later in app.py
             image_file.seek(0) 
             return cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
         else:
-            # If it's a string path
             return cv2.imread(image_file)
     except Exception as e:
         print(f"Error converting image to numpy: {e}")

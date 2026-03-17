@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>System Logs</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        .log-container { background: #1e1e1e; color: #00ff00; padding: 20px; font-family: monospace; border-radius: 5px; height: 500px; overflow-y: scroll; }
+    </style>
+</head>
+<body class="bg-light p-5">
+    <h3>🖥️ System Inference Logs (Last 50 Events)</h3>
+    <div class="log-container">
+        {% for log in logs %}
+            <p>> {{ log }}</p>
+        {% endfor %}
+    </div>
+    <a href="/dashboard" class="btn btn-primary mt-3">Back to Dashboard</a>
+</body>
+</html>

@@ -3,11 +3,30 @@
 <head>
     <title>Report a Sighting - LocateNet</title>
     <style>
-        body { font-family: sans-serif; margin: 40px; line-height: 1.6; }
+        body { font-family: sans-serif; margin: 40px; line-height: 1.6; background-color: #f4f7f6; }
         .form-group { margin-bottom: 15px; }
         .hidden { display: none; }
-        .container { max-width: 500px; margin: auto; border: 1px solid #ddd; padding: 20px; border-radius: 8px; }
-        button { background: #007bff; color: white; border: none; padding: 10px 20px; cursor: pointer; border-radius: 4px; }
+        .container { max-width: 500px; margin: auto; border: 1px solid #ddd; padding: 20px; border-radius: 8px; background: white; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        button { background: #007bff; color: white; border: none; padding: 12px 20px; cursor: pointer; border-radius: 4px; width: 100%; font-size: 16px; }
+        button:hover { background: #0056b3; }
+        input[type="text"], input[type="email"], textarea { padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        
+        /* Alert Styling */
+        .alert { padding: 15px; margin-bottom: 20px; border-radius: 4px; }
+        .alert-standard { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .alert-hotspot { 
+            background-color: #ff4136; 
+            color: white; 
+            border: 2px solid #85144b; 
+            font-weight: bold; 
+            text-align: center;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+            100% { transform: scale(1); }
+        }
     </style>
 </head>
 <body>
@@ -19,7 +38,15 @@
         {% with messages = get_flashed_messages() %}
           {% if messages %}
             {% for message in messages %}
-              <p style="color: red;">{{ message }}</p>
+              {% if 'HOTSPOT' in message %}
+                <div class="alert alert-hotspot">
+                    {{ message }}
+                </div>
+              {% else %}
+                <div class="alert alert-standard">
+                    {{ message }}
+                </div>
+              {% endif %}
             {% endfor %}
           {% endif %}
         {% endwith %}
@@ -33,7 +60,7 @@
 
             <div id="image_input" class="form-group">
                 <label>Upload Image:</label><br>
-                <input type="file" name="image" accept="image/*">
+                <input type="file" name="image" accept="image/*" capture="camera">
             </div>
 
             <div id="video_input" class="form-group hidden">
@@ -42,27 +69,29 @@
             </div>
 
             <div class="form-group">
-                <input type="text" name="name" placeholder="Your Name" style="width:95%" required>
+                <input type="text" name="name" placeholder="Your Name" style="width:100%" required>
             </div>
 
             <div class="form-group">
-                <input type="text" name="mobile" placeholder="Mobile Number (10 digits)" style="width:95%" required>
+                <input type="text" name="mobile" placeholder="Mobile Number (10 digits)" style="width:100%" required>
             </div>
 
             <div class="form-group">
-                <input type="email" name="email" placeholder="Email (Optional)" style="width:95%">
+                <input type="email" name="email" placeholder="Email (Optional)" style="width:100%">
             </div>
 
             <div class="form-group">
-                <input type="text" name="location" placeholder="Location where person was seen" style="width:95%" required>
+                <input type="text" name="location" placeholder="Location where person was seen" style="width:100%" required>
             </div>
 
             <div class="form-group">
-                <textarea name="birth_marks" placeholder="Birth Marks / Identifying Features" style="width:95%; height:60px;"></textarea>
+                <textarea name="birth_marks" placeholder="Birth Marks / Identifying Features" style="width:100%; height:60px;"></textarea>
             </div>
 
             <button type="submit">Submit Sighting</button>
-            <a href="/" style="margin-left: 10px;">Back to Home</a>
+            <div style="text-align: center; margin-top: 15px;">
+                <a href="/">Back to Home</a>
+            </div>
         </form>
     </div>
 
