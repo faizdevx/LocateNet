@@ -90,6 +90,32 @@ LocateNet
 
 ---
 
+## WORKING 
+## Application Interface
+
+### 1. Common Interface
+<img src="app_snaps/01.png" width="900">
+
+### 2. Admin / Officer Login
+<img src="app_snaps/02.png" width="900">
+
+### 3. Role Based Task Dashboard
+<img src="app_snaps/03.png" width="900">
+
+### 4. Officer Registers New Case
+<img src="app_snaps/04.png" width="900">
+
+### 5. Reporting by Public / Other Officers
+<img src="app_snaps/05.png" width="900">
+
+### 6. Face Match Detection Notification
+<img src="app_snaps/06.png" width="900">
+
+### 7. Officer Verification (Found / Not Found)
+<img src="app_snaps/07.png" width="900">
+
+13) MORE PHOTOS
+
 ## Installation
 
 Clone the repository
