@@ -20,13 +20,17 @@
 
 <p align="center">
 
-![Python](https://img.shields.io/badge/Python-3.10-blue)
-![PyTorch](https://img.shields.io/badge/PyTorch-2.0-red)
-![OpenCV](https://img.shields.io/badge/OpenCV-4.8-green)
-![License](https://img.shields.io/badge/License-MIT-yellow)
+![Python](https://img.shields.io/badge/Python-3.10-3776AB?logo=python&logoColor=white)
+![Flask](https://img.shields.io/badge/Flask-WebFramework-000000?logo=flask&logoColor=white)
+![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-ORM-D71F00?logo=sqlalchemy&logoColor=white)
+![InsightFace](https://img.shields.io/badge/InsightFace-FaceRecognition-orange)
+![FAISS](https://img.shields.io/badge/FAISS-VectorSearch-blue)
+![OpenCV](https://img.shields.io/badge/OpenCV-ComputerVision-5C3EE8?logo=opencv&logoColor=white)
+![NumPy](https://img.shields.io/badge/NumPy-ScientificComputing-013243?logo=numpy&logoColor=white)
+![Geopy](https://img.shields.io/badge/Geopy-Geolocation-green)
+![Folium](https://img.shields.io/badge/Folium-InteractiveMaps-darkgreen)
 
 </p>
-
 
 
 
