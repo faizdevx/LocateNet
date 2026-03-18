@@ -217,4 +217,4 @@ See `LICENSE` file.
 
 ## Author
 
-Faizal
+faizdevx
