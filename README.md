@@ -114,8 +114,6 @@ LocateNet
 ### 7. Officer Verification (Found / Not Found)
 <img src="app_snaps/12.png" width="900">
 
-13) MORE PHOTOS
-
 ## Installation
 
 Clone the repository
