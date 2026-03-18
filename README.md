@@ -1,5 +1,23 @@
 # LocateNet
 
+```
+
+
+.__                        __            _______          __   
+|  |   ____   ____ _____ _/  |_  ____    \      \   _____/  |_ 
+|  |  /  _ \_/ ___\\__  \\   __\/ __ \   /   |   \_/ __ \   __\
+|  |_(  <_> )  \___ / __ \|  | \  ___/  /    |    \  ___/|  |  
+|____/\____/ \___  >____  /__|  \___  > \____|__  /\___  >__|  
+                 \/     \/          \/          \/     \/
+
+
+```
+
+
+
+
+
+
 LocateNet is a facial recognition and crowd-analysis system designed to help locate missing individuals.  
 The platform detects multiple faces from group photos, generates biometric embeddings, and compares them against a database to identify potential matches.
 
