@@ -60,6 +60,8 @@ The platform detects multiple faces from group photos, generates biometric embed
 | Processing | Python 3.10+ | Image processing pipeline |
 | Mapping | Folium / Geopy | Geographic visualization of sightings |
 
+![workflow](workflow.png) 
+
 ---
 
 ## Project Structure
