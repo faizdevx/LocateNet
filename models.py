@@ -167,9 +167,31 @@ def create_db():
                 percentage REAL,
                 category TEXT,
                 bbox TEXT,
+                review_decision TEXT,
+                reviewed_by TEXT,
+                review_timestamp TEXT,
                 created_at TEXT,
                 FOREIGN KEY(sighting_id) REFERENCES public_submissions(id),
                 FOREIGN KEY(match_id) REFERENCES cases(id)
+            )""")
+        sighting_face_columns = [row[1] for row in cursor.execute("PRAGMA table_info(sighting_faces)").fetchall()]
+        if "review_decision" not in sighting_face_columns:
+            cursor.execute("ALTER TABLE sighting_faces ADD COLUMN review_decision TEXT")
+        if "reviewed_by" not in sighting_face_columns:
+            cursor.execute("ALTER TABLE sighting_faces ADD COLUMN reviewed_by TEXT")
+        if "review_timestamp" not in sighting_face_columns:
+            cursor.execute("ALTER TABLE sighting_faces ADD COLUMN review_timestamp TEXT")
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS sighting_face_reviews (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                sighting_face_id INTEGER NOT NULL,
+                sighting_id TEXT NOT NULL,
+                decision TEXT NOT NULL,
+                reviewed_by TEXT NOT NULL,
+                review_timestamp TEXT NOT NULL,
+                FOREIGN KEY(sighting_face_id) REFERENCES sighting_faces(id),
+                FOREIGN KEY(sighting_id) REFERENCES public_submissions(id)
             )""")
 
         # NEW: Sightings Table
@@ -300,6 +322,45 @@ class db_queries:
             face["bbox"] = json.loads(face["bbox"]) if face.get("bbox") else None
             faces.append(face)
         return faces
+
+    @staticmethod
+    def review_sighting_face(sighting_face_id, decision, reviewed_by):
+        review_timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        with get_db_connection() as conn:
+            sighting_face = conn.execute(
+                "SELECT id, sighting_id FROM sighting_faces WHERE id = ?",
+                (sighting_face_id,),
+            ).fetchone()
+            if not sighting_face:
+                return None
+
+            conn.execute("""
+                INSERT INTO sighting_face_reviews (sighting_face_id, sighting_id, decision, reviewed_by, review_timestamp)
+                VALUES (?, ?, ?, ?, ?)
+            """, (
+                sighting_face["id"],
+                sighting_face["sighting_id"],
+                decision,
+                reviewed_by,
+                review_timestamp,
+            ))
+            conn.execute("""
+                UPDATE sighting_faces
+                SET review_decision = ?, reviewed_by = ?, review_timestamp = ?
+                WHERE id = ?
+            """, (decision, reviewed_by, review_timestamp, sighting_face["id"]))
+            conn.commit()
+            return sighting_face["sighting_id"]
+
+    @staticmethod
+    def get_sighting_face_reviews(sighting_id):
+        with get_db_connection() as conn:
+            return conn.execute("""
+                SELECT *
+                FROM sighting_face_reviews
+                WHERE sighting_id = ?
+                ORDER BY review_timestamp DESC, id DESC
+            """, (sighting_id,)).fetchall()
 
 def get_case_by_id(case_id):
     with get_db_connection() as conn:

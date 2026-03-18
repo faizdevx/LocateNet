@@ -18,6 +18,7 @@ from services.face_service import FaceService
 from services.reid_service import ReIDService
 from vector_db.search_service import SearchService
 from pipeline.detection_pipeline import DetectionPipeline
+from pipeline.video_pipeline import VideoPipeline
 app = Flask(__name__)
 app.secret_key = "super_secret_locate_net_key"
 
@@ -36,6 +37,7 @@ face_svc = FaceService()
 reid_svc = ReIDService()
 search_svc = SearchService()
 pipeline = DetectionPipeline(face_svc, reid_svc, search_svc)
+video_pipeline = VideoPipeline(face_svc, reid_svc, search_svc)
 
 CITY_COORDS_FALLBACK = {
     "Delhi": [28.6139, 77.2090],
@@ -137,23 +139,49 @@ def report_sighting():
         location = request.form.get("location")
         email = request.form.get("email")
         birth_marks = request.form.get("birth_marks")
-        file = request.files.get("image")
+        upload_type = request.form.get("upload_type", "image")
+        image_file = request.files.get("image")
+        video_file = request.files.get("video")
+        file = video_file if upload_type == "video" else image_file
 
         # 1. Validation
-        if not all([name, mobile, location, file]) or len(mobile) != 10:
-            flash("Please provide your Name, 10-digit Mobile, Location, and an Image.")
+        if not all([name, mobile, location]) or len(mobile) != 10:
+            flash("Please provide your Name, 10-digit Mobile, and Location.")
             return redirect(url_for("report_sighting"))
 
-        # 2. Save Sighting Image
+        if not file or not file.filename:
+            flash("Please upload an image or video before submitting.")
+            return redirect(url_for("report_sighting"))
+
+        if upload_type == "video" and not getattr(video_pipeline, "available", False):
+            flash("Video upload is not ready because video AI dependencies are not installed yet.")
+            return redirect(url_for("report_sighting"))
+
+        # 2. Save Sighting Media
         unique_id = str(uuid.uuid4())
-        filename = f"sighting_{unique_id}.jpg"
+        original_name = secure_filename(file.filename)
+        ext = os.path.splitext(original_name)[1] or (".mp4" if upload_type == "video" else ".jpg")
+        filename = f"sighting_{unique_id}{ext}"
         filepath = os.path.join(app.config["RESOURCES_FOLDER"], filename)
         file.save(filepath)
         
         try:
-            # 3. Process via AI Pipeline (Handles Groups & Higher Accuracy)
-            image_np = cv2.imread(filepath)
-            results = pipeline.process_frame(image_np)
+            # 3. Process via AI Pipeline
+            if upload_type == "video":
+                video_result = video_pipeline.process_video(filepath)
+                results = []
+                for track in video_result.get("tracks", []):
+                    results.append({
+                        "id": track.get("match_id", -1),
+                        "confidence": track.get("confidence", 0.0),
+                        "category": track.get("category", "Unknown (No SQL Match)"),
+                        "bbox": track.get("face_bbox") or track.get("person_bbox"),
+                        "face_crop_path": track.get("face_crop_path"),
+                        "embedding": [],
+                    })
+            else:
+                image_np = cv2.imread(filepath)
+                results = pipeline.process_frame(image_np)
             inference_time = time.time() - start_time
             
             # Log the performance
@@ -172,12 +200,12 @@ def report_sighting():
 
             # 5. Filter Matches (Hide Resolved Cases)
             faces_detected_count = 0
-            matches_found_count = 0
+            active_matches = []
 
             for face_data in results:
                 db_queries.save_sighting_face({
                     "sighting_id": unique_id,
-                    "face_crop_path": face_data["face_crop_path"],
+                    "face_crop_path": face_data.get("face_crop_path") or f"resources/{filename}",
                     "match_id": face_data["id"],
                     "percentage": face_data["confidence"],
                     "category": face_data["category"],
@@ -190,10 +218,16 @@ def report_sighting():
 
                 case = db_queries.get_case_by_id(face_data["id"])
                 if case and case["status"] == "NF":
-                    matches_found_count += 1
-                    add_match_to_db(face_data["id"], unique_id, face_data["confidence"])
+                    active_matches.append({
+                        "case_id": face_data["id"],
+                        "confidence": face_data["confidence"],
+                    })
                 elif case and case["status"] == "F":
                     logging.info(f"AI spotted resolved person ID {face_data['id']}. Ignoring alert.")
+
+            if active_matches:
+                top_match = max(active_matches, key=lambda x: x["confidence"])
+                add_match_to_db(top_match["case_id"], unique_id, top_match["confidence"])
 
             # 6. Step 11: Hotspot Alert Logic
             is_hotspot, count = AlertService.check_repeated_sightings(location, location, "face")
@@ -201,8 +235,8 @@ def report_sighting():
                 flash(f"🔥 HOTSPOT: This person has been seen {count} times in this area recently!")
 
             # 7. Final Response to User
-            if matches_found_count > 0:
-                flash(f"Success: {faces_detected_count} faces detected in group. {matches_found_count} matches identified! Officer notified.")
+            if active_matches:
+                flash(f"Success: {faces_detected_count} faces detected in group. {len(active_matches)} matches identified! Officer notified.")
             else:
                 flash(f"Sighting recorded. {faces_detected_count} faces detected, but no immediate active matches found above threshold.")
 
@@ -213,6 +247,36 @@ def report_sighting():
         return redirect(url_for("report_sighting"))
         
     return render_template("report_sighting.html")
+
+
+@app.route("/api/process_video", methods=["POST"])
+def process_video_api():
+    file = request.files.get("video")
+    if not file or not file.filename:
+        return jsonify({"ok": False, "error": "Video file is required."}), 400
+
+    if not getattr(video_pipeline, "available", False):
+        return jsonify({
+            "ok": False,
+            "error": "Video pipeline dependencies are unavailable.",
+            "details": getattr(video_pipeline, "init_error", None),
+        }), 503
+
+    filename = secure_filename(file.filename)
+    unique_name = f"{uuid.uuid4()}_{filename}"
+    video_dir = os.path.join(app.config["RESOURCES_FOLDER"], "videos")
+    os.makedirs(video_dir, exist_ok=True)
+    video_path = os.path.join(video_dir, unique_name)
+    file.save(video_path)
+
+    try:
+        max_frames = request.form.get("max_frames", type=int)
+        result = video_pipeline.process_video(video_path, max_frames=max_frames)
+        return jsonify({"ok": True, "result": result})
+    except Exception as e:
+        logging.error(f"Video Pipeline Error: {str(e)}")
+        return jsonify({"ok": False, "error": str(e)}), 500
+
 # --- AUTH & DASHBOARD ROUTES ---
 
 @app.route("/login", methods=["GET", "POST"])
@@ -239,6 +303,12 @@ def dashboard():
             FROM matches m
             JOIN cases c ON m.case_id = c.id
             JOIN public_submissions p ON m.sighting_id = p.id
+            JOIN (
+                SELECT MAX(id) AS latest_match_id
+                FROM matches
+                WHERE is_read = 0
+                GROUP BY sighting_id
+            ) latest ON latest.latest_match_id = m.id
             WHERE c.officer = ? AND m.is_read = 0
             ORDER BY m.date_detected DESC
         """, (user,)).fetchall()
@@ -261,7 +331,9 @@ def dashboard():
 @login_required
 def mark_read(alert_id):
     with get_db_connection() as conn:
-        conn.execute("UPDATE matches SET is_read = 1 WHERE id = ?", (alert_id,))
+        match = conn.execute("SELECT sighting_id FROM matches WHERE id = ?", (alert_id,)).fetchone()
+        if match:
+            conn.execute("UPDATE matches SET is_read = 1 WHERE sighting_id = ?", (match["sighting_id"],))
         conn.commit()
     return redirect(url_for("dashboard"))
 
@@ -275,7 +347,32 @@ def sighting_detail(sighting_id):
         return redirect(url_for("dashboard"))
 
     faces = db_queries.get_sighting_faces(sighting_id)
-    return render_template("officer_sighting_detail.html", sighting=sighting, faces=faces)
+    reviews = db_queries.get_sighting_face_reviews(sighting_id)
+    return render_template("officer_sighting_detail.html", sighting=sighting, faces=faces, reviews=reviews)
+
+
+@app.route("/sighting/<string:sighting_id>/review/<int:face_id>", methods=["POST"])
+@login_required
+def review_sighting_face(sighting_id, face_id):
+    decision = request.form.get("decision")
+    allowed_decisions = {"confirm_match", "false_positive", "ignore"}
+
+    if decision not in allowed_decisions:
+        flash("Invalid review decision.")
+        return redirect(url_for("sighting_detail", sighting_id=sighting_id))
+
+    reviewed_sighting_id = db_queries.review_sighting_face(
+        sighting_face_id=face_id,
+        decision=decision,
+        reviewed_by=session["user"],
+    )
+
+    if reviewed_sighting_id is None:
+        flash("Face review target not found.")
+        return redirect(url_for("dashboard"))
+
+    flash(f"Review saved: {decision.replace('_', ' ').title()}.")
+    return redirect(url_for("sighting_detail", sighting_id=reviewed_sighting_id))
 
 @app.route("/register_case", methods=["GET", "POST"])
 @login_required

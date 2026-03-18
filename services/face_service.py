@@ -45,19 +45,25 @@ class FaceService:
             return None
         return face.embedding
 
-    def get_single_embedding(self, frame):
+    def get_best_face(self, frame):
         faces = self.detect_faces(frame)
-        if faces:
-            # Prefer the largest detected face, which is usually the closest subject.
-            faces = sorted(
-                faces,
-                key=lambda x: (x.bbox[2] - x.bbox[0]) * (x.bbox[3] - x.bbox[1]),
-                reverse=True,
-            )
-            for face in faces:
-                embedding = self.get_quality_embedding(face)
-                if embedding is not None:
-                    return embedding
+        if not faces:
+            return None
+
+        faces = sorted(
+            faces,
+            key=lambda x: (x.bbox[2] - x.bbox[0]) * (x.bbox[3] - x.bbox[1]),
+            reverse=True,
+        )
+        for face in faces:
+            if self.get_quality_embedding(face) is not None:
+                return face
+        return None
+
+    def get_single_embedding(self, frame):
+        best_face = self.get_best_face(frame)
+        if best_face is not None:
+            return self.get_quality_embedding(best_face)
         return None
 
     def compare_embeddings(self, emb1, emb2):
