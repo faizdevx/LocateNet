@@ -103,7 +103,7 @@ LocateNet
 <img src="app_snaps/05.png" width="900">
 
 ### 4. Officer Registers New Case
-<img src="app_snaps/07png" width="900">
+<img src="app_snaps/07.png" width="900">
 
 ### 5. Reporting by Public / Other Officers
 <img src="app_snaps/03.png" width="900">
