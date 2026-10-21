@@ -55,8 +55,9 @@ class DetectionPipeline:
 
         return results
 
-    def enroll_new_person(self, frame, person_id, name=None):
-        face_emb = self.face_svc.get_single_embedding(frame)
+    def enroll_new_person(self, frame, person_id, name=None, face_vector=None):
+        """Add a case to the face index. Pass face_vector to skip recomputing the embedding."""
+        face_emb = face_vector if face_vector is not None else self.face_svc.get_single_embedding(frame)
         if face_emb is None:
             return False
 

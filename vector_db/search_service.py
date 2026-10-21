@@ -50,20 +50,28 @@ class SearchService:
 
         emb = self._normalize(embedding)
         distances, indices = self.face_index.search(emb, top_k)
-        return distances[0], indices[0]
+        # FAISS pads with -1 ids when the index holds fewer than top_k vectors.
+        valid = indices[0] != -1
+        return distances[0][valid], indices[0][valid]
 
     def search_body(self, embedding, top_k=3):
         emb = self._normalize(embedding)
         distances, indices = self.body_index.search(emb, top_k)
         return distances, indices
 
+    def rebuild_face_index(self, items):
+        """Replace the face index with (case_id, embedding) pairs and persist it."""
+        index = faiss.IndexIDMap(faiss.IndexFlatIP(self.face_dim))
+        for case_id, embedding in items:
+            index.add_with_ids(self._normalize(embedding), np.array([case_id], dtype="int64"))
+        self.face_index = index
+        self.save_index()
+        return index.ntotal
+
     def save_index(self):
-        try:
-            faiss.write_index(self.face_index, self.face_bin)
-            faiss.write_index(self.body_index, self.body_bin)
-            print("Vector DB saved to disk.")
-        except Exception as e:
-            print(f"Error saving index: {e}")
+        # Errors propagate so callers can keep SQL and FAISS in sync.
+        faiss.write_index(self.face_index, self.face_bin)
+        faiss.write_index(self.body_index, self.body_bin)
 
     def load_index(self):
         if os.path.exists(self.face_bin):

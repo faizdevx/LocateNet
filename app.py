@@ -16,6 +16,7 @@ import config
 from models import *
 from services.alert_service import AlertService, normalize_location
 from services.face_service import FaceService
+from vector_db.rebuild import ensure_index_in_sync
 from vector_db.search_service import SearchService
 from pipeline.detection_pipeline import DetectionPipeline
 from pipeline.video_pipeline import VideoPipeline
@@ -40,6 +41,8 @@ if config.ENABLE_REID:
 else:
     reid_svc = None
 search_svc = SearchService()
+create_db()
+ensure_index_in_sync(search_svc)
 pipeline = DetectionPipeline(face_svc, reid_svc, search_svc)
 video_pipeline = VideoPipeline(face_svc, reid_svc, search_svc)
 
@@ -189,7 +192,7 @@ def report_sighting():
                         "category": track.get("category", "No Match"),
                         "bbox": track.get("face_bbox") or track.get("person_bbox"),
                         "face_crop_path": track.get("face_crop_path"),
-                        "embedding": [],
+                        "embedding": track.get("face_embedding", []),
                     })
             else:
                 image_np = cv2.imread(filepath)
@@ -200,8 +203,9 @@ def report_sighting():
             logging.info(f"Inference: {inference_time:.2f}s | ID: {unique_id}")
 
             # 4. Save Public Submission to SQL
-            # We use the first face detected for the primary record, or an empty list if none
-            primary_vector = results[0]['embedding'] if (results and 'embedding' in results[0]) else []
+            # We use the highest-similarity face for the primary record, or an empty list if none
+            best_result = max(results, key=lambda r: r["similarity"]) if results else None
+            primary_vector = best_result["embedding"] if best_result else []
             
             details = PublicSubmissions(
                 id=unique_id, submitted_by=name, location=location,
@@ -430,14 +434,27 @@ def register_case():
             face_vector=vector_list
         )
 
-        # 5. Enroll into AI Pipeline & persist Vector DB
-        enrolled = pipeline.enroll_new_person(image_numpy, person_id=case_id, name=person_name)
-        search_svc.save_index()
-        
-        if enrolled:
-            flash(f"Success: Case for {person_name} registered and added to the vector database.")
-        else:
-            flash(f"Success: Case for {person_name} registered, but no face embedding was enrolled.")
+        # 5. Enroll into AI Pipeline & persist Vector DB. Roll back the SQL row if FAISS fails.
+        try:
+            enrolled = pipeline.enroll_new_person(image_numpy, person_id=case_id, name=person_name, face_vector=face_vector)
+        except Exception:
+            logging.exception("FAISS enrollment failed for case %s", case_id)
+            enrolled = False
+
+        if not enrolled:
+            delete_case(case_id)
+            try:
+                os.remove(filepath)
+            except OSError:
+                pass
+            try:
+                search_svc.remove_face(case_id)
+            except Exception:
+                logging.exception("Could not clean FAISS entry for case %s", case_id)
+            flash("Could not enroll the face. The case was not saved; please try again.")
+            return redirect(url_for("register_case"))
+
+        flash(f"Success: Case for {person_name} registered and added to the vector database.")
         logging.info(f"New Case Registered: {person_name} by {session['user']}")
         
         return redirect(url_for("dashboard"))
@@ -450,7 +467,10 @@ def resolve(case_id):
     case = get_case_by_id(case_id)
     if case and (session["role"] == "Admin" or case['officer'] == session["user"]):
         resolve_case(case_id)
-        search_svc.remove_face(case_id)
+        try:
+            search_svc.remove_face(case_id)
+        except Exception:
+            logging.exception("Could not remove case %s from the face index", case_id)
         flash("Case resolved.")
     return redirect(url_for("dashboard"))
 
@@ -516,7 +536,6 @@ logging.basicConfig(
 
 
 if __name__ == "__main__":
-    create_db()
     app.run(debug=True)
 
 

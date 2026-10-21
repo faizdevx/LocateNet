@@ -1,12 +1,9 @@
 import sqlite3
 import bcrypt
-import config
 from models import create_db, DB_NAME
 
-# New imports for AI services
-from services.face_service import FaceService
+from vector_db.rebuild import rebuild_face_index
 from vector_db.search_service import SearchService
-from pipeline.detection_pipeline import DetectionPipeline
 
 def bootstrap_admin():
     # 1. Create the tables
@@ -27,37 +24,18 @@ def bootstrap_admin():
         cursor.execute("INSERT INTO users (username, password_hash, role, name) VALUES (?, ?, ?, ?)",
                        (username, hashed, role, full_name))
         conn.commit()
-        print("✅ Success: Admin account created!")
+        print("Success: Admin account created!")
         print(f"Username: {username} | Password: {password}")
     except sqlite3.IntegrityError:
-        print("⚠️ Note: Admin user already exists.")
+        print("Note: Admin user already exists.")
     finally:
         conn.close()
 
-def init_ai_systems():
-    """
-    Initializes AI models once at startup to save memory and processing time.
-    """
-    print("🤖 Initializing AI Systems...")
-    
-    # Instantiate services
-    face_service = FaceService()
-    reid_service = ReIDService() if config.ENABLE_REID else None
-    search_service = SearchService()
-
-    # Initialize the pipeline with the services
-    pipeline = DetectionPipeline(
-        face_service,
-        reid_service,
-        search_service
-    )
-    
-    print("✅ AI Systems Ready.")
-    return pipeline
+def init_vector_index():
+    """Create (or rebuild) the FAISS index from the active cases. Loads no AI models."""
+    count = rebuild_face_index(SearchService())
+    print(f"Vector index ready with {count} active case vector(s).")
 
 if __name__ == "__main__":
-    # Run Database Setup
     bootstrap_admin()
-    
-    # Run AI System Initialization
-    pipeline = init_ai_systems()
+    init_vector_index()

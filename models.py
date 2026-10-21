@@ -257,6 +257,11 @@ def get_case_by_id(case_id):
     with get_db_connection() as conn:
         return conn.execute("SELECT * FROM cases WHERE id = ?", (case_id,)).fetchone()
 
+def delete_case(case_id):
+    with get_db_connection() as conn:
+        conn.execute("DELETE FROM cases WHERE id=?", (case_id,))
+        conn.commit()
+
 def resolve_case(case_id):
     with get_db_connection() as conn:
         conn.execute("UPDATE cases SET status='F' WHERE id=?", (case_id,))

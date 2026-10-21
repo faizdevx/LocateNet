@@ -108,7 +108,7 @@ class VideoPipeline:
             "track_bbox": [x1, y1, x2, y2],
             "face_bbox": [int(fx1), int(fy1), int(fx2), int(fy2)],
             "face_crop_path": face_crop_path,
-            "face_embedding": embedding,
+            "face_embedding": embedding.tolist() if hasattr(embedding, "tolist") else list(embedding),
             "body_embedding": body_embedding.tolist() if hasattr(body_embedding, "tolist") else body_embedding,
         }
 
@@ -133,10 +133,10 @@ class VideoPipeline:
                     break
 
                 frame_index += 1
-                if frame_index % self.frame_stride != 0:
-                    continue
                 if max_frames and frame_index > max_frames:
                     break
+                if frame_index % self.frame_stride != 0:
+                    continue
 
                 detections = self._detect_people(frame)
                 tracks = self.tracker.update_tracks(detections, frame=frame)
@@ -166,6 +166,7 @@ class VideoPipeline:
                         "face_bbox": track_data["face_bbox"],
                         "face_crop_path": track_data["face_crop_path"],
                         "frame_index": frame_index,
+                        "face_embedding": track_data["face_embedding"],
                         "body_embedding": track_data["body_embedding"],
                     }
 
