@@ -1,0 +1,4 @@
+# WIDER FACE val AP, det_size 640 vs 1024
+experiment: detection
+det_sizes: [640, 1024]
+seed: 0

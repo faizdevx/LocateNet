@@ -1,0 +1,229 @@
+{
+  "meta": {
+    "experiment": "quality",
+    "config": "eval/config/quality.yaml",
+    "model": "buffalo_l",
+    "insightface_version": "2.1",
+    "onnxruntime_version": "1.31.0",
+    "faiss_version": "1.15.1",
+    "dataset_version": "LFW original (lfw.tgz, figshare 5976018, sha256 055f7d9c...); pairs.txt View 2",
+    "git_commit": "1701775b3016b27ebb7ec30ee9c7f34f7901c616-dirty",
+    "timestamp": "2026-10-21T20:59:35+00:00",
+    "seed": 0,
+    "python": "3.12.11"
+  },
+  "threshold": 0.312,
+  "n_probes": 11939,
+  "n_mated": 5967,
+  "protocol": "Data: the per-probe records of the robustness experiment (original + degraded LFW test probes),\nso the gate sees a realistic spread of quality. Every probe with a detected face is included.\n\nError-versus-reject curve: for each cut-off, probes below it are rejected (production: no alert);\nwe plot FNIR on the RETAINED mated probes against the fraction of probes rejected. A good quality\nscore removes the probes that would have been misses first, so the curve drops quickly.\n\nCombined score: average percentile rank of det_score, log face width and log Laplacian variance\n(equal weights, nothing fitted, so no tuning on this data).",
+  "erc": {
+    "rejected_fraction": [
+      0.0,
+      0.02,
+      0.04,
+      0.06,
+      0.08,
+      0.1,
+      0.12,
+      0.14,
+      0.16,
+      0.18,
+      0.2,
+      0.22,
+      0.24,
+      0.26,
+      0.28,
+      0.3,
+      0.32,
+      0.34,
+      0.36,
+      0.38,
+      0.4,
+      0.42,
+      0.44,
+      0.46,
+      0.48,
+      0.5
+    ],
+    "det_score": [
+      0.051952,
+      0.04788,
+      0.045915,
+      0.044393,
+      0.042077,
+      0.040037,
+      0.037136,
+      0.035464,
+      0.034717,
+      0.033926,
+      0.032049,
+      0.031156,
+      0.03043,
+      0.029438,
+      0.027933,
+      0.027532,
+      0.0276,
+      0.026409,
+      0.025661,
+      0.025946,
+      0.025419,
+      0.025137,
+      0.025434,
+      0.02545,
+      0.024492,
+      0.023131
+    ],
+    "combined": [
+      0.051952,
+      0.043092,
+      0.037535,
+      0.034587,
+      0.030965,
+      0.028864,
+      0.027233,
+      0.023967,
+      0.021149,
+      0.020233,
+      0.018014,
+      0.017619,
+      0.016538,
+      0.015625,
+      0.013734,
+      0.012928,
+      0.011336,
+      0.011427,
+      0.011259,
+      0.010811,
+      0.010335,
+      0.010691,
+      0.011071,
+      0.010863,
+      0.010635,
+      0.011063
+    ]
+  },
+  "erc_mean_fnir": {
+    "det_score": 0.032367,
+    "combined": 0.019681
+  },
+  "combined_beats_det_score": true,
+  "det_score_sweep": [
+    {
+      "cutoff": 0.3,
+      "rejected_fraction": 0.0,
+      "rejected_fraction_undegraded": 0.0,
+      "fnir_retained": 0.051952,
+      "fnir_overall": 0.051952,
+      "fpir_overall": 0.005693
+    },
+    {
+      "cutoff": 0.35,
+      "rejected_fraction": 0.0,
+      "rejected_fraction_undegraded": 0.0,
+      "fnir_retained": 0.051952,
+      "fnir_overall": 0.051952,
+      "fpir_overall": 0.005693
+    },
+    {
+      "cutoff": 0.4,
+      "rejected_fraction": 0.0,
+      "rejected_fraction_undegraded": 0.0,
+      "fnir_retained": 0.051952,
+      "fnir_overall": 0.051952,
+      "fpir_overall": 0.005693
+    },
+    {
+      "cutoff": 0.45,
+      "rejected_fraction": 0.0,
+      "rejected_fraction_undegraded": 0.0,
+      "fnir_retained": 0.051952,
+      "fnir_overall": 0.051952,
+      "fpir_overall": 0.005693
+    },
+    {
+      "cutoff": 0.5,
+      "rejected_fraction": 0.0,
+      "rejected_fraction_undegraded": 0.0,
+      "fnir_retained": 0.051952,
+      "fnir_overall": 0.051952,
+      "fpir_overall": 0.005693
+    },
+    {
+      "cutoff": 0.55,
+      "rejected_fraction": 0.002848,
+      "rejected_fraction_undegraded": 0.0,
+      "fnir_retained": 0.051321,
+      "fnir_overall": 0.055137,
+      "fpir_overall": 0.005693
+    },
+    {
+      "cutoff": 0.6,
+      "rejected_fraction": 0.008711,
+      "rejected_fraction_undegraded": 0.0,
+      "fnir_retained": 0.049289,
+      "fnir_overall": 0.059326,
+      "fpir_overall": 0.005526
+    },
+    {
+      "cutoff": 0.65,
+      "rejected_fraction": 0.020856,
+      "rejected_fraction_undegraded": 0.0025,
+      "fnir_retained": 0.047766,
+      "fnir_overall": 0.067873,
+      "fpir_overall": 0.005358
+    },
+    {
+      "cutoff": 0.7,
+      "rejected_fraction": 0.054025,
+      "rejected_fraction_undegraded": 0.015,
+      "fnir_retained": 0.044551,
+      "fnir_overall": 0.097872,
+      "fpir_overall": 0.005358
+    },
+    {
+      "cutoff": 0.75,
+      "rejected_fraction": 0.125974,
+      "rejected_fraction_undegraded": 0.04,
+      "fnir_retained": 0.03652,
+      "fnir_overall": 0.155522,
+      "fpir_overall": 0.005191
+    },
+    {
+      "cutoff": 0.8,
+      "rejected_fraction": 0.297596,
+      "rejected_fraction_undegraded": 0.14,
+      "fnir_retained": 0.027492,
+      "fnir_overall": 0.31825,
+      "fpir_overall": 0.004856
+    },
+    {
+      "cutoff": 0.85,
+      "rejected_fraction": 0.738755,
+      "rejected_fraction_undegraded": 0.62,
+      "fnir_retained": 0.019317,
+      "fnir_overall": 0.744763,
+      "fpir_overall": 0.002679
+    },
+    {
+      "cutoff": 0.9,
+      "rejected_fraction": 0.997487,
+      "rejected_fraction_undegraded": 0.995,
+      "fnir_retained": 0.0,
+      "fnir_overall": 0.997151,
+      "fpir_overall": 0.0
+    }
+  ],
+  "recommended_DET_SCORE_MIN": {
+    "value": 0.6,
+    "rule": "highest cut-off rejecting <= 1% of undegraded probes and raising overall FNIR by <= 1% (absolute)",
+    "at_value": {
+      "cutoff": 0.6,
+      "rejected_fraction": 0.008711,
+      "rejected_fraction_undegraded": 0.0,
+      "fnir_retained": 0.049289,
+      "fnir_overall": 0.059326,
+      "fpir_overall": 0.005526
+    }
+  },
+  "plot": "eval/plots/quality_erc.png"
+}

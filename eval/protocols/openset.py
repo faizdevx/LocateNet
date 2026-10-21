@@ -94,15 +94,17 @@ def gallery_for_size(proto_split, size, seed=0):
     return gallery
 
 
-def search_probes(gallery, probes, emb_of, top_k):
-    """Enrol the gallery in a temporary production SearchService and search every probe."""
+def search_probes(gallery, probes, emb_of, top_k, gallery_emb=None):
+    """Enrol the gallery in a temporary production SearchService and search every probe.
+    gallery_emb (default: emb_of) supplies the enrolment embeddings when probes are degraded."""
     from vector_db.search_service import SearchService
     tmp = tempfile.mkdtemp(prefix="locatenet-openset-")
     try:
         ids = {ident: n + 1 for n, ident in enumerate(sorted(gallery))}
         names = {v: k for k, v in ids.items()}
         svc = SearchService(index_path=tmp)
-        svc.rebuild_face_index([(ids[i], emb_of[p]) for i, p in gallery.items()])
+        gallery_emb = emb_of if gallery_emb is None else gallery_emb
+        svc.rebuild_face_index([(ids[i], gallery_emb[p]) for i, p in gallery.items()])
         rows = []
         for p, ident, mated in probes.itertuples(index=False):
             in_gallery = ident in gallery
