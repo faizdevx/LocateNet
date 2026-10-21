@@ -3,7 +3,7 @@ PYTHON ?= python
 VENV ?= .venv
 BIN := $(VENV)/bin
 
-.PHONY: setup init run clean reset-data
+.PHONY: setup init run clean reset-data eval-data eval-all eval-report
 
 setup:
 	$(PYTHON) -m venv $(VENV)
@@ -27,3 +27,17 @@ clean:
 reset-data:
 	@read -p "This deletes ALL local data. Type 'yes' to continue: " ans && [ "$$ans" = "yes" ]
 	$(BIN)/python clean_system.py
+
+# --- Evaluation (Week 2). Datasets go to data/ and caches to eval/cache/ (both git-ignored). ---
+EVAL_ORDER = embed_lfw verification openset operating_point calibration bias robustness quality detection latency
+
+eval-data:
+	$(BIN)/pip install -r requirements-eval.txt
+	$(BIN)/python scripts/get_eval_data.py
+
+eval-all:
+	for exp in $(EVAL_ORDER); do $(BIN)/python -m eval run eval/config/$$exp.yaml || exit 1; done
+	$(BIN)/python -m eval report
+
+eval-report:
+	$(BIN)/python -m eval report

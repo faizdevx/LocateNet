@@ -1,0 +1,5 @@
+# Build the LFW embedding cache through the production FaceService and report FTE.
+experiment: embed
+dataset: lfw
+det_size: [640, 640]
+seed: 0
