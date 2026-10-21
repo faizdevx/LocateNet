@@ -1,0 +1,26 @@
+services:
+  locatenet:
+    build:
+      context: .
+      args:
+        INSTALL_VIDEO: "0"   # set to "1" to include video upload support
+    ports:
+      - "5000:5000"
+    env_file:
+      - .env
+    environment:
+      LOCATENET_DB: /app/data/database.db
+    volumes:
+      - locatenet_data:/app/data
+      - locatenet_resources:/app/resources
+      - locatenet_uploads:/app/uploads
+      - locatenet_vectors:/app/vector_db/storage
+      - locatenet_models:/home/app/.insightface
+    restart: unless-stopped
+
+volumes:
+  locatenet_data:
+  locatenet_resources:
+  locatenet_uploads:
+  locatenet_vectors:
+  locatenet_models:

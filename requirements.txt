@@ -1,0 +1,14 @@
+# Core runtime. Tested on Python 3.11 and 3.12.
+Flask==3.1.3
+Flask-WTF==1.3.0
+insightface==2.1
+onnx==1.16.2            # imported by insightface
+onnxruntime==1.31.0
+opencv-python-headless==4.10.0.84   # note: insightface also pulls in opencv-python; both provide cv2
+numpy==1.26.4           # keep below 2 (matches the opencv and onnx builds above)
+faiss-cpu==1.15.1
+geopy==2.5.0
+folium==0.20.0
+bcrypt==5.0.0
+python-dotenv==1.2.4
+gunicorn==26.2.0; sys_platform != "win32"

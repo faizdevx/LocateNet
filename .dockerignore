@@ -1,0 +1,14 @@
+.git
+.venv
+.env
+__pycache__
+*.pyc
+database.db
+resources
+uploads
+logs
+vector_db/storage
+*.pt
+app_snaps
+workflow.png
+tests

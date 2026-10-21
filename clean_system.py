@@ -2,12 +2,14 @@ import os
 import shutil
 import sqlite3
 
+import config
+
 def reset_system():
     print("🧹 Starting system cleanup...")
 
     # 1. Delete SQLite Database
-    if os.path.exists("database.db"):
-        os.remove("database.db")
+    if os.path.exists(config.DB_PATH):
+        os.remove(config.DB_PATH)
         print("✅ Database file removed.")
 
     # 2. Clear Upload Folders (but keep the folders themselves)

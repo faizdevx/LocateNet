@@ -1,6 +1,14 @@
 """Central configuration. Every value can be overridden with an environment variable."""
 import os
 
+try:  # optional: load a local .env file before anything is read
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 
 def _env_float(name, default):
     try:
@@ -34,3 +42,6 @@ ENABLE_REID = _env_bool("ENABLE_REID", False)
 
 # Flask debug mode. Off by default; enable with FLASK_DEBUG=1 for local development only.
 DEBUG = _env_bool("FLASK_DEBUG", False)
+
+# SQLite database location (override to keep it on a mounted volume).
+DB_PATH = os.environ.get("LOCATENET_DB", os.path.join(BASE_DIR, "database.db"))

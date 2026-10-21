@@ -1,5 +1,6 @@
 import sqlite3
-import os 
+import os
+import config
 import cv2
 import numpy as np
 import json
@@ -7,7 +8,7 @@ from datetime import datetime
 from contextlib import contextmanager
 
 # --- DB CONFIG ---
-DB_NAME = "database.db"
+DB_NAME = config.DB_PATH
 
 @contextmanager
 def get_db_connection():
