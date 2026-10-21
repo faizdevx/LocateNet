@@ -1,0 +1,53 @@
+{
+  "meta": {
+    "experiment": "calibration",
+    "config": "eval/config/calibration.yaml",
+    "model": "buffalo_l",
+    "insightface_version": "2.1",
+    "onnxruntime_version": "1.31.0",
+    "faiss_version": "1.15.1",
+    "dataset_version": "LFW original (lfw.tgz, figshare 5976018, sha256 055f7d9c...); pairs.txt View 2",
+    "git_commit": "3cc3fd3e00ff31cfe52b4405b2f1f6cbb7ab9273-dirty",
+    "timestamp": "2026-10-21T19:55:32+00:00",
+    "seed": 0,
+    "python": "3.12.11"
+  },
+  "prior": 0.1,
+  "gallery_size": 1000,
+  "n_tune": 3754,
+  "n_test": 3611,
+  "n_test_mated": 1672,
+  "n_test_nonmated": 1939,
+  "metrics_test": {
+    "raw_minmax": {
+      "ece": 0.10964,
+      "brier": 0.020658
+    },
+    "platt": {
+      "ece": 0.003698,
+      "brier": 0.0022
+    },
+    "isotonic": {
+      "ece": 0.001026,
+      "brier": 0.001426
+    }
+  },
+  "chosen": "platt",
+  "selection_rule": "platt unless isotonic ECE is lower by more than 0.005",
+  "export": "models/calibrator.json",
+  "example_predictions": {
+    "0.30": 0.011605,
+    "0.40": 0.177268,
+    "0.50": 0.798134,
+    "0.60": 0.986404,
+    "0.70": 0.999249
+  },
+  "middle_range_0.05_0.95": {
+    "share_of_searches": 0.010438,
+    "mean_predicted": 0.705969,
+    "observed_correct": 0.911063,
+    "n": 161
+  },
+  "bayes_adjustment": "odds' = odds * (pi'/(1-pi')) / (pi/(1-pi)), with pi the fitting prior",
+  "plot": "eval/plots/calibration_reliability.png"
+}

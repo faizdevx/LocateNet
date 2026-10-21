@@ -38,6 +38,11 @@ HIGH_CONF_THRESHOLD = _env_float("HIGH_CONF_THRESHOLD", 0.634)  # FPIR 0.1%: "Hi
 DET_SCORE_MIN = _env_float("DET_SCORE_MIN", 0.6)              # minimum face detector score
 TOP_K = _env_int("TOP_K", 5)                                  # FAISS neighbours inspected per face
 
+# Score calibration (eval/calibrate.py). The likelihood shown to officers is only valid at this
+# assumed share of searched faces that belong to an enrolled person; see services/calibration.py.
+CALIBRATOR_PATH = os.environ.get("LOCATENET_CALIBRATOR", os.path.join(BASE_DIR, "models", "calibrator.json"))
+CALIBRATION_PRIOR = _env_float("CALIBRATION_PRIOR", 0.1)
+
 # Body ReID is a placeholder (untrained head), so it is off by default.
 ENABLE_REID = _env_bool("ENABLE_REID", False)
 
