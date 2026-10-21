@@ -1,0 +1,5 @@
+# Do det_size 640 thresholds transfer to 1024?
+experiment: detsize_check
+det_size: 1024
+n_identities: 200
+seed: 0

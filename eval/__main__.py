@@ -20,6 +20,7 @@ EXPERIMENTS = {
     "quality": "eval.protocols.quality",
     "detection": "eval.protocols.detection",
     "latency": "eval.protocols.latency",
+    "detsize_check": "eval.protocols.detsize_check",
     "smoke": "eval.protocols.smoke",
 }
 

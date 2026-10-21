@@ -1,0 +1,5 @@
+{# Score line shown to officers: raw similarity, optional calibrated estimate, and a reminder. #}
+{% macro score_line(row, raw_percent) -%}
+Similarity {{ '%.2f'|format(row.similarity if row.similarity is not none else raw_percent / 100) }}
+{%- if row.calibrated_likelihood is not none %} &middot; Est. match likelihood ~{{ (row.calibrated_likelihood * 100)|round|int }}% (estimate, calibrated at {{ (row.likelihood_prior * 100)|round|int }}% prior){% endif %} &middot; Needs human confirmation
+{%- endmacro %}

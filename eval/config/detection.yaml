@@ -2,3 +2,8 @@
 experiment: detection
 det_sizes: [640, 1024]
 seed: 0
+# 1024 has the best Hard AP, but SCRFD then misses large close-up faces (84% failure to enrol on
+# LFW, see eval/results/detsize_check.json). Enrolment photos are close-ups and production uses one
+# detector for both, so 640 is recommended until multi-scale detection exists.
+recommend: 640
+recommend_reason: "1024 gains Hard AP on tiny crowd faces but fails on large close-up faces (LFW FTE 84%, eval/results/detsize_check.json); one detector serves both enrolment and sightings, so keep 640"

@@ -35,8 +35,12 @@ def _env_bool(name, default=False):
 # Source: eval/results/operating_point.json (generated at commit 090fe12, gallery 1000, tune split).
 MATCH_THRESHOLD = _env_float("MATCH_THRESHOLD", 0.312)        # FPIR 1%: alert only at or above this
 HIGH_CONF_THRESHOLD = _env_float("HIGH_CONF_THRESHOLD", 0.634)  # FPIR 0.1%: "High Similarity" label only
-DET_SCORE_MIN = _env_float("DET_SCORE_MIN", 0.6)              # minimum face detector score
+# Minimum face-detector score (quality gate). Kept at 0.6: eval/results/quality.json (recommended_DET_SCORE_MIN).
+DET_SCORE_MIN = _env_float("DET_SCORE_MIN", 0.6)
 TOP_K = _env_int("TOP_K", 5)                                  # FAISS neighbours inspected per face
+# Detector input size (square). Kept at 640: 1024 gains crowd (WIDER Hard) AP but misses large close-up
+# faces. Sources: eval/results/detection_widerface.json, eval/results/detsize_check.json.
+DET_SIZE = (_env_int("DET_SIZE", 640),) * 2
 
 # Score calibration (eval/calibrate.py). The likelihood shown to officers is only valid at this
 # assumed share of searched faces that belong to an enrolled person; see services/calibration.py.

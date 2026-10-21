@@ -179,5 +179,7 @@ def run(cfg):
     save_result("detection_widerface", {
         "meta": metadata(cfg, widerface.DATASET_VERSION), "cpu": cpu_name(),
         "protocol": __doc__.strip().split("\n\n", 1)[1], "results": results,
+        "best_hard_det_size": int(best_hard),
         "recommended_det_size": int(cfg.get("recommend", best_hard)),
+        "recommendation_reason": cfg.get("recommend_reason", "highest Hard-subset AP"),
     })

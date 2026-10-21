@@ -7,8 +7,8 @@
     "onnxruntime_version": "1.31.0",
     "faiss_version": "1.15.1",
     "dataset_version": "WIDER FACE val (Yang et al., CVPR 2016), official eval_tools ground truth",
-    "git_commit": "1701775b3016b27ebb7ec30ee9c7f34f7901c616-dirty",
-    "timestamp": "2026-10-21T20:15:31+00:00",
+    "git_commit": "c334deae186fe739273b0fcffdbf7a365aa24908-dirty",
+    "timestamp": "2026-10-21T21:21:36+00:00",
     "seed": 0,
     "python": "3.12.11"
   },
@@ -56,5 +56,7 @@
       "n_images": 3226
     }
   },
-  "recommended_det_size": 1024
+  "best_hard_det_size": 1024,
+  "recommended_det_size": 640,
+  "recommendation_reason": "1024 gains Hard AP on tiny crowd faces but fails on large close-up faces (LFW FTE 84%, eval/results/detsize_check.json); one detector serves both enrolment and sightings, so keep 640"
 }

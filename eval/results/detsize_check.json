@@ -1,0 +1,29 @@
+{
+  "meta": {
+    "experiment": "detsize_check",
+    "config": "eval/config/detsize_check.yaml",
+    "model": "buffalo_l",
+    "insightface_version": "2.1",
+    "onnxruntime_version": "1.31.0",
+    "faiss_version": "1.15.1",
+    "dataset_version": "LFW original (lfw.tgz, figshare 5976018, sha256 055f7d9c...); pairs.txt View 2",
+    "git_commit": "c334deae186fe739273b0fcffdbf7a365aa24908-dirty",
+    "timestamp": "2026-10-21T21:15:58+00:00",
+    "seed": 0,
+    "python": "3.12.11"
+  },
+  "det_size": 1024,
+  "n_images": 400,
+  "n_both_enrolled": 63,
+  "fte_640": 0.005,
+  "fte_1024": 0.8425,
+  "self_cosine_mean": 0.138361,
+  "self_cosine_p01": -0.086624,
+  "genuine_mean_640": 0.737122,
+  "genuine_mean_1024": 0.011587,
+  "impostor_mean_640": 0.001866,
+  "impostor_mean_1024": 0.017918,
+  "genuine_mean_shift": -0.725536,
+  "impostor_mean_shift": 0.016052,
+  "max_abs_score_shift": 0.941592
+}

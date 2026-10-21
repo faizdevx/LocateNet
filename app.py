@@ -34,6 +34,7 @@ logging.basicConfig(
 import config
 from models import *
 from services.alert_service import AlertService, normalize_location
+from services.calibration import Calibrator
 from services.face_service import FaceService
 from vector_db.rebuild import ensure_index_in_sync
 from vector_db.search_service import SearchService
@@ -73,9 +74,30 @@ app.config.update(
 csrf = CSRFProtect(app)
 
 
+def load_calibrator(path):
+    """Optional score calibrator. Missing or unreadable file -> None (the UI then shows raw similarity only)."""
+    try:
+        return Calibrator.from_json(path)
+    except FileNotFoundError:
+        logging.info("No calibrator at %s; showing raw similarity only.", path)
+    except (ValueError, KeyError, TypeError):
+        logging.exception("Calibrator at %s could not be loaded; showing raw similarity only.", path)
+    return None
+
+
+calibrator = load_calibrator(config.CALIBRATOR_PATH)
+
+
+def estimate_likelihood(similarity):
+    """Estimated P(correct match) at config.CALIBRATION_PRIOR, or None without a calibrator."""
+    if calibrator is None or similarity is None:
+        return None
+    return calibrator.predict(float(similarity), prior=config.CALIBRATION_PRIOR)
+
+
 # --- AI PIPELINE INITIALIZATION ---
 # These must be global so all routes can access them
-face_svc = FaceService()
+face_svc = FaceService(det_size=config.DET_SIZE)
 if config.ENABLE_REID:
     from services.reid_service import ReIDService
     reid_svc = ReIDService()
@@ -186,12 +208,14 @@ def is_case_active(case_id):
     return bool(case and case["status"] == "NF")
 
 
-def add_match_to_db(case_id, sighting_id, confidence):
+def add_match_to_db(case_id, sighting_id, confidence, similarity=None, likelihood=None):
     with get_db_connection() as conn:
         conn.execute("""
-            INSERT INTO matches (case_id, sighting_id, confidence, date_detected)
-            VALUES (?, ?, ?, ?)
-        """, (case_id, sighting_id, confidence, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+            INSERT INTO matches (case_id, sighting_id, confidence, date_detected,
+                                 similarity, calibrated_likelihood, likelihood_prior)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (case_id, sighting_id, confidence, datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+              similarity, likelihood, config.CALIBRATION_PRIOR if likelihood is not None else None))
         conn.commit()
 
 def create_map():
@@ -310,11 +334,15 @@ def report_sighting():
             active_matches = []
 
             for face_data in results:
+                face_data["calibrated_likelihood"] = estimate_likelihood(face_data.get("similarity"))
                 db_queries.save_sighting_face({
                     "sighting_id": unique_id,
                     "face_crop_path": face_data.get("face_crop_path") or f"resources/{filename}",
                     "match_id": face_data["id"],
                     "percentage": face_data["percentage"],
+                    "similarity": face_data.get("similarity"),
+                    "calibrated_likelihood": face_data["calibrated_likelihood"],
+                    "likelihood_prior": config.CALIBRATION_PRIOR if face_data["calibrated_likelihood"] is not None else None,
                     "category": face_data["category"],
                     "bbox": face_data["bbox"],
                 })
@@ -329,11 +357,13 @@ def report_sighting():
                         "case_id": face_data["id"],
                         "similarity": face_data["similarity"],
                         "percentage": face_data["percentage"],
+                        "likelihood": face_data["calibrated_likelihood"],
                     })
 
             if active_matches:
                 top_match = max(active_matches, key=lambda x: x["similarity"])
-                add_match_to_db(top_match["case_id"], unique_id, top_match["percentage"])
+                add_match_to_db(top_match["case_id"], unique_id, top_match["percentage"],
+                                top_match["similarity"], top_match["likelihood"])
 
                 # 6. Hotspot alert: the same case matched repeatedly in one city within 48h
                 is_hotspot, hotspot_count = AlertService.check_repeated_sightings(top_match["case_id"], location)

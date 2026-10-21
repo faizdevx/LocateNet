@@ -66,6 +66,11 @@ _face_module.FaceService = FakeFaceService
 import app as app_module  # noqa: E402
 import models  # noqa: E402
 
+# Never let tests write case photos or sighting media into the real project folders.
+for _key, _name in (("UPLOAD_FOLDER", "uploads"), ("RESOURCES_FOLDER", "resources")):
+    app_module.app.config[_key] = os.path.join(_TMP, _name)
+    os.makedirs(app_module.app.config[_key], exist_ok=True)
+
 TABLES = ["matches", "sighting_face_reviews", "sighting_faces", "public_submissions", "cases", "users"]
 
 
