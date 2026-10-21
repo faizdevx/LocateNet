@@ -93,6 +93,11 @@ def get_coords(city_name):
     return CITY_COORDS_FALLBACK.get(city_name, (None, None))
 
 
+def is_case_active(case_id):
+    case = db_queries.get_case_by_id(case_id)
+    return bool(case and case["status"] == "NF")
+
+
 def add_match_to_db(case_id, sighting_id, confidence):
     with get_db_connection() as conn:
         conn.execute("""
@@ -168,20 +173,21 @@ def report_sighting():
         try:
             # 3. Process via AI Pipeline
             if upload_type == "video":
-                video_result = video_pipeline.process_video(filepath)
+                video_result = video_pipeline.process_video(filepath, is_active=is_case_active)
                 results = []
                 for track in video_result.get("tracks", []):
                     results.append({
                         "id": track.get("match_id", -1),
-                        "confidence": track.get("confidence", 0.0),
-                        "category": track.get("category", "Unknown (No SQL Match)"),
+                        "similarity": track.get("similarity", 0.0),
+                        "percentage": track.get("percentage", 0.0),
+                        "category": track.get("category", "No Match"),
                         "bbox": track.get("face_bbox") or track.get("person_bbox"),
                         "face_crop_path": track.get("face_crop_path"),
                         "embedding": [],
                     })
             else:
                 image_np = cv2.imread(filepath)
-                results = pipeline.process_frame(image_np)
+                results = pipeline.process_frame(image_np, is_active=is_case_active)
             inference_time = time.time() - start_time
             
             # Log the performance
@@ -207,27 +213,26 @@ def report_sighting():
                     "sighting_id": unique_id,
                     "face_crop_path": face_data.get("face_crop_path") or f"resources/{filename}",
                     "match_id": face_data["id"],
-                    "percentage": face_data["confidence"],
+                    "percentage": face_data["percentage"],
                     "category": face_data["category"],
                     "bbox": face_data["bbox"],
                 })
                 faces_detected_count += 1
 
+                # The pipeline already applied the threshold and the active-case check.
                 if face_data["id"] == -1:
                     continue
 
-                case = db_queries.get_case_by_id(face_data["id"])
-                if case and case["status"] == "NF":
+                if is_case_active(face_data["id"]):
                     active_matches.append({
                         "case_id": face_data["id"],
-                        "confidence": face_data["confidence"],
+                        "similarity": face_data["similarity"],
+                        "percentage": face_data["percentage"],
                     })
-                elif case and case["status"] == "F":
-                    logging.info(f"AI spotted resolved person ID {face_data['id']}. Ignoring alert.")
 
             if active_matches:
-                top_match = max(active_matches, key=lambda x: x["confidence"])
-                add_match_to_db(top_match["case_id"], unique_id, top_match["confidence"])
+                top_match = max(active_matches, key=lambda x: x["similarity"])
+                add_match_to_db(top_match["case_id"], unique_id, top_match["percentage"])
 
             # 6. Step 11: Hotspot Alert Logic
             is_hotspot, count = AlertService.check_repeated_sightings(location, location, "face")
@@ -438,6 +443,7 @@ def resolve(case_id):
     case = get_case_by_id(case_id)
     if case and (session["role"] == "Admin" or case['officer'] == session["user"]):
         resolve_case(case_id)
+        search_svc.remove_face(case_id)
         flash("Case resolved.")
     return redirect(url_for("dashboard"))
 

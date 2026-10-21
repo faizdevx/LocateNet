@@ -38,6 +38,12 @@ class SearchService:
         emb = self._normalize(embedding)
         self.body_index.add(emb)
 
+    def remove_face(self, person_id):
+        """Remove a case vector from the face index and persist the change."""
+        removed = self.face_index.remove_ids(np.array([person_id], dtype="int64"))
+        self.save_index()
+        return int(removed)
+
     def search_face(self, embedding, top_k=5):
         if self.face_index.ntotal == 0:
             return [], []

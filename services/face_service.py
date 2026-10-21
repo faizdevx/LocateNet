@@ -2,6 +2,8 @@ import cv2
 import numpy as np
 from insightface.app import FaceAnalysis
 
+import config
+
 
 class FaceService:
     def __init__(self, det_threshold=0.5):
@@ -41,7 +43,7 @@ class FaceService:
 
     def get_quality_embedding(self, face):
         # Ignore weak detections because they tend to create noisy identity vectors.
-        if getattr(face, "det_score", 0.0) < 0.6:
+        if getattr(face, "det_score", 0.0) < config.DET_SCORE_MIN:
             return None
         return face.embedding
 

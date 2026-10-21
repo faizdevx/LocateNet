@@ -3,6 +3,9 @@ import uuid
 
 import cv2
 
+import config
+from pipeline.scoring import match_fields
+
 
 class VideoPipeline:
     def __init__(
@@ -12,7 +15,6 @@ class VideoPipeline:
         search_service,
         storage_path="resources/video_frames",
         model_name="yolov8n.pt",
-        face_match_threshold=0.72,
         person_conf_threshold=0.35,
         frame_stride=3,
     ):
@@ -20,7 +22,6 @@ class VideoPipeline:
         self.reid_service = reid_service
         self.search_service = search_service
         self.storage_path = storage_path
-        self.face_match_threshold = face_match_threshold
         self.person_conf_threshold = person_conf_threshold
         self.frame_stride = max(1, int(frame_stride))
         self.model_name = model_name
@@ -109,7 +110,7 @@ class VideoPipeline:
             "body_embedding": body_embedding.tolist() if hasattr(body_embedding, "tolist") else body_embedding,
         }
 
-    def process_video(self, video_path, max_frames=None):
+    def process_video(self, video_path, max_frames=None, is_active=None):
         if not self.available:
             raise RuntimeError(
                 "Video pipeline dependencies are unavailable. Install 'ultralytics' and "
@@ -147,25 +148,18 @@ class VideoPipeline:
                     if track_data is None:
                         continue
 
-                    scores, ids = self.search_service.search_face(track_data["face_embedding"])
-                    best_score = float(scores[0]) if len(scores) > 0 else 0.0
-                    best_id = int(ids[0]) if len(ids) > 0 else -1
-
-                    label = "Unknown"
-                    if best_score >= self.face_match_threshold and best_id != -1:
-                        label = f"Person_{best_id}"
+                    scores, ids = self.search_service.search_face(
+                        track_data["face_embedding"], top_k=config.TOP_K
+                    )
+                    match = match_fields(scores, ids, is_active)
 
                     current = {
                         "track_id": track_id,
-                        "match_id": best_id,
-                        "label": label,
-                        "confidence": round(best_score * 100, 2),
-                        "category": (
-                            "High Confidence Match" if best_score * 100 >= 75.0
-                            else "Likely Match" if best_score * 100 >= 50.0
-                            else "Potential Match (Check Group)" if best_score * 100 >= 10.0
-                            else "Unknown (No SQL Match)"
-                        ),
+                        "match_id": match["id"],
+                        "label": match["label"],
+                        "similarity": match["similarity"],
+                        "percentage": match["percentage"],
+                        "category": match["category"],
                         "person_bbox": track_data["track_bbox"],
                         "face_bbox": track_data["face_bbox"],
                         "face_crop_path": track_data["face_crop_path"],
@@ -174,7 +168,7 @@ class VideoPipeline:
                     }
 
                     previous = processed_tracks.get(track_id)
-                    if previous is None or current["confidence"] >= previous["confidence"]:
+                    if previous is None or current["similarity"] >= previous["similarity"]:
                         processed_tracks[track_id] = current
         finally:
             capture.release()
