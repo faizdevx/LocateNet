@@ -31,9 +31,10 @@ def _env_bool(name, default=False):
     return value.strip().lower() in ("1", "true", "yes", "on")
 
 
-# NOTE: these thresholds are provisional. Week 2 evaluation will choose them from data.
-MATCH_THRESHOLD = _env_float("MATCH_THRESHOLD", 0.45)         # cosine; alert only at or above this
-HIGH_CONF_THRESHOLD = _env_float("HIGH_CONF_THRESHOLD", 0.60)
+# Matching thresholds (cosine similarity), measured on LFW; see docs/OPERATING_POINT.md.
+# Source: eval/results/operating_point.json (generated at commit 090fe12, gallery 1000, tune split).
+MATCH_THRESHOLD = _env_float("MATCH_THRESHOLD", 0.312)        # FPIR 1%: alert only at or above this
+HIGH_CONF_THRESHOLD = _env_float("HIGH_CONF_THRESHOLD", 0.634)  # FPIR 0.1%: "High Similarity" label only
 DET_SCORE_MIN = _env_float("DET_SCORE_MIN", 0.6)              # minimum face detector score
 TOP_K = _env_int("TOP_K", 5)                                  # FAISS neighbours inspected per face
 

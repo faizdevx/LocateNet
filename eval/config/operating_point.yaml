@@ -1,0 +1,9 @@
+# Thresholds from the tune split, measured on the test split; writes docs/OPERATING_POINT.md
+experiment: operating_point
+gallery_size: 1000
+uploads_per_day: 200
+faces_per_upload: 4
+match_fpir: 0.01
+high_fpir: 0.001
+n_boot: 1000
+seed: 0
