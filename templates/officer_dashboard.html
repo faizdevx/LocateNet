@@ -72,9 +72,12 @@
                         <i class="bi bi-images"></i> View Faces
                     </a>
                     <br>
-                    <a href="/mark_read/{{ alert.id }}" class="btn btn-sm btn-outline-secondary" title="Dismiss Alert">
-                        <i class="bi bi-check2-all"></i> Dismiss
-                    </a>
+                    <form method="post" action="/mark_read/{{ alert.id }}" class="d-inline">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-sm btn-outline-secondary" title="Dismiss Alert">
+                            <i class="bi bi-check2-all"></i> Dismiss
+                        </button>
+                    </form>
                 </div>
             </div>
             {% endfor %}
@@ -140,11 +143,12 @@
                             <td><span class="badge bg-light text-dark border">{{ case['city'] }}</span></td>
                             <td class="small text-muted">{{ case['date_reported'] }}</td>
                             <td class="text-end">
-                                <a href="/resolve/{{ case['id'] }}" 
-                                   class="btn btn-sm btn-success px-3 shadow-sm"
-                                   onclick="return confirm('Confirm safe recovery of {{ case['person_name'] }}?')">
-                                   Mark Found
-                                </a>
+                                <form method="post" action="/resolve/{{ case['id'] }}" class="d-inline"
+                                      data-name="{{ case['person_name'] }}"
+                                      onsubmit="return confirm('Confirm safe recovery of ' + this.dataset.name + '?')">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="btn btn-sm btn-success px-3 shadow-sm">Mark Found</button>
+                                </form>
                             </td>
                         </tr>
                         {% endif %}

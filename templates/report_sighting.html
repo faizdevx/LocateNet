@@ -52,6 +52,7 @@
         {% endwith %}
 
         <form method="POST" enctype="multipart/form-data">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="form-group">
                 <label><strong>Upload Type:</strong></label><br>
                 <input type="radio" name="upload_type" value="image" checked onclick="toggleUpload('image')"> Image

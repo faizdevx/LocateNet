@@ -97,11 +97,11 @@
                         </td>
                         <td class="text-center">
                             {% if case['status'] == 'NF' %}
-                            <a href="/resolve/{{ case['id'] }}" 
-                               class="btn btn-sm btn-success px-3"
-                               onclick="return confirm('Confirm resolution for this case?')">
-                               Resolve
-                            </a>
+                            <form method="post" action="/resolve/{{ case['id'] }}" class="d-inline"
+                                  onsubmit="return confirm('Confirm resolution for this case?')">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-sm btn-success px-3">Resolve</button>
+                            </form>
                             {% else %}
                             <span class="text-success small"><i class="bi bi-check-circle"></i> Completed</span>
                             {% endif %}

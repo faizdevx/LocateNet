@@ -31,3 +31,6 @@ TOP_K = _env_int("TOP_K", 5)                                  # FAISS neighbours
 
 # Body ReID is a placeholder (untrained head), so it is off by default.
 ENABLE_REID = _env_bool("ENABLE_REID", False)
+
+# Flask debug mode. Off by default; enable with FLASK_DEBUG=1 for local development only.
+DEBUG = _env_bool("FLASK_DEBUG", False)

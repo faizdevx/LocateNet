@@ -58,6 +58,7 @@
                 {% endwith %}
 
                 <form method="POST" action="/register_case" enctype="multipart/form-data">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="mb-3">
                         <label for="person_name" class="form-label fw-bold">Full Name of Missing Person</label>
                         <input type="text" class="form-control" id="person_name" name="person_name" placeholder="Enter full name" required>

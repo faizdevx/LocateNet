@@ -193,7 +193,7 @@
         {% for case in cases %}
         <div class="case-card" data-name="{{ case.person_name.lower() }}" data-city="{{ case.city.lower() }}">
             <div class="case-img-wrapper">
-                <img src="{{ url_for('uploaded_file', filename=case.image_path.split('/')[-1]) }}" alt="{{ case.person_name }}">
+                <img src="{{ url_for('case_photo', case_id=case.id) }}" alt="{{ case.person_name }}">
                 
                 <span class="status-badge {{ 'badge-nf' if case.status == 'NF' else 'badge-f' }}">
                     {{ 'Missing' if case.status == 'NF' else 'Found' }}

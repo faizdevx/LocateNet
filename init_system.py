@@ -1,3 +1,5 @@
+import os
+import secrets
 import sqlite3
 import bcrypt
 from models import create_db, DB_NAME
@@ -8,26 +10,34 @@ from vector_db.search_service import SearchService
 def bootstrap_admin():
     # 1. Create the tables
     create_db()
-    
-    # 2. Add the initial Admin
+
+    # 2. Add the initial Admin (password from LOCATENET_ADMIN_PASSWORD, or randomly generated)
     username = "admin"
-    password = "admin123"  # Change this later!
     full_name = "System Administrator"
     role = "Admin"
-    
-    # Hash the password
-    hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-    
+
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     try:
+        if cursor.execute("SELECT 1 FROM users WHERE username = ?", (username,)).fetchone():
+            print("Note: Admin user already exists. Its password was not changed.")
+            return
+
+        password = os.environ.get("LOCATENET_ADMIN_PASSWORD")
+        generated = not password
+        if generated:
+            password = secrets.token_urlsafe(12)
+
+        hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
         cursor.execute("INSERT INTO users (username, password_hash, role, name) VALUES (?, ?, ?, ?)",
                        (username, hashed, role, full_name))
         conn.commit()
         print("Success: Admin account created!")
-        print(f"Username: {username} | Password: {password}")
-    except sqlite3.IntegrityError:
-        print("Note: Admin user already exists.")
+        if generated:
+            print(f"Username: {username} | Generated password: {password}")
+            print("This password is shown only once. Store it now and change it after the first login.")
+        else:
+            print(f"Username: {username} | Password: taken from LOCATENET_ADMIN_PASSWORD")
     finally:
         conn.close()
 

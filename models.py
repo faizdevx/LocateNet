@@ -244,6 +244,17 @@ class db_queries:
             return sighting_face["sighting_id"]
 
     @staticmethod
+    def get_sighting_face_owner(sighting_face_id):
+        """Return the face row plus the officer who owns the matched case (None if unmatched)."""
+        with get_db_connection() as conn:
+            return conn.execute("""
+                SELECT sf.id, sf.sighting_id, sf.match_id, c.officer
+                FROM sighting_faces sf
+                LEFT JOIN cases c ON sf.match_id = c.id
+                WHERE sf.id = ?
+            """, (sighting_face_id,)).fetchone()
+
+    @staticmethod
     def get_sighting_face_reviews(sighting_id):
         with get_db_connection() as conn:
             return conn.execute("""
@@ -275,14 +286,26 @@ def get_all_cases_admin():
             return conn.execute("SELECT * FROM cases ORDER BY date_reported DESC").fetchall()
     except sqlite3.OperationalError: return []
 
+def get_public_cases():
+    """Public registry view: only cases still missing, and only the fields safe to show."""
+    try:
+        with get_db_connection() as conn:
+            return conn.execute("""
+                SELECT id, person_name, city, date_reported, status
+                FROM cases WHERE status = 'NF' ORDER BY date_reported DESC
+            """).fetchall()
+    except sqlite3.OperationalError: return []
+
 def get_case_counts_by_city():
     try:
         with get_db_connection() as conn:
             rows = conn.execute("""
                 SELECT city, SUM(CASE WHEN status = 'NF' THEN 1 ELSE 0 END) as not_found,
-                SUM(CASE WHEN status = 'F' THEN 1 ELSE 0 END) as found FROM cases GROUP BY city
+                SUM(CASE WHEN status = 'F' THEN 1 ELSE 0 END) as found,
+                AVG(latitude) as lat, AVG(longitude) as lon FROM cases GROUP BY city
             """).fetchall()
-            return {row['city']: {"not_found": row['not_found'], "found": row['found']} for row in rows}
+            return {row['city']: {"not_found": row['not_found'], "found": row['found'],
+                                  "lat": row['lat'], "lon": row['lon']} for row in rows}
     except sqlite3.OperationalError: return {}
 
 def image_obj_to_numpy(image_file):

@@ -1,15 +1,34 @@
 import os
+import sys
 import time
 import json
+import html
+import secrets
 import bcrypt
 import folium
 import uuid
-from functools import wraps
-from flask import Flask, render_template, request, redirect, session, flash, jsonify, url_for, send_from_directory
+import logging
+from functools import wraps, lru_cache
+from flask import (Flask, render_template, request, redirect, session, flash, jsonify,
+                   url_for, send_from_directory, abort)
+from flask_wtf.csrf import CSRFProtect
 from werkzeug.utils import secure_filename
 from geopy.geocoders import Nominatim
-from geopy.exc import GeocoderTimedOut
-import logging
+
+# --- CONFIGURATION ---
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads")
+RESOURCES_FOLDER = os.path.join(BASE_DIR, "resources")
+LOG_DIR = os.path.join(BASE_DIR, "logs")
+
+# Logging is configured before the services load so their startup messages are captured.
+# Never log mobile numbers or emails.
+os.makedirs(LOG_DIR, exist_ok=True)
+logging.basicConfig(
+    filename=os.path.join(LOG_DIR, "system.log"),
+    level=logging.INFO,
+    format='%(asctime)s | %(levelname)s | %(message)s'
+)
 
 # Internal project imports
 import config
@@ -20,19 +39,41 @@ from vector_db.rebuild import ensure_index_in_sync
 from vector_db.search_service import SearchService
 from pipeline.detection_pipeline import DetectionPipeline
 from pipeline.video_pipeline import VideoPipeline
+
+ALLOWED_IMAGE_EXT = {"jpg", "jpeg", "png", "webp"}
+ALLOWED_VIDEO_EXT = {"mp4", "mov", "avi"}
+MAX_IMAGE_BYTES = 10 * 1024 * 1024
+MAX_VIDEO_BYTES = 100 * 1024 * 1024
+
+
+def _load_secret_key():
+    key = os.environ.get("LOCATENET_SECRET_KEY")
+    if key:
+        return key
+    if config.DEBUG:
+        message = "LOCATENET_SECRET_KEY is not set; using a random key (sessions reset on restart)."
+        logging.warning(message)
+        print(f"WARNING: {message}", file=sys.stderr)
+        return secrets.token_hex(32)
+    raise RuntimeError(
+        "LOCATENET_SECRET_KEY is not set. Set it to a long random value "
+        "(or set FLASK_DEBUG=1 for local development)."
+    )
+
+
 app = Flask(__name__)
-app.secret_key = "super_secret_locate_net_key"
+app.secret_key = _load_secret_key()
+app.config.update(
+    UPLOAD_FOLDER=UPLOAD_FOLDER,
+    RESOURCES_FOLDER=RESOURCES_FOLDER,
+    MAX_CONTENT_LENGTH=MAX_VIDEO_BYTES,  # global cap; per-type limits are checked in validate_upload
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+)
+csrf = CSRFProtect(app)
 
-# --- CONFIGURATION ---
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads")
-RESOURCES_FOLDER = os.path.join(BASE_DIR, "resources")
 
-app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
-app.config["RESOURCES_FOLDER"] = RESOURCES_FOLDER
-
-
-# --- AI PIPELINE INITIALIZATION (ADD THIS HERE) ---
+# --- AI PIPELINE INITIALIZATION ---
 # These must be global so all routes can access them
 face_svc = FaceService()
 if config.ENABLE_REID:
@@ -47,9 +88,9 @@ pipeline = DetectionPipeline(face_svc, reid_svc, search_svc)
 video_pipeline = VideoPipeline(face_svc, reid_svc, search_svc)
 
 CITY_COORDS_FALLBACK = {
-    "Delhi": [28.6139, 77.2090],
-    "Lucknow": [26.8467, 80.9462],
-    "Mumbai": [19.0760, 72.8777]
+    "Delhi": (28.6139, 77.2090),
+    "Lucknow": (26.8467, 80.9462),
+    "Mumbai": (19.0760, 72.8777)
 }
 
 # Initialization
@@ -70,14 +111,46 @@ def login_required(f):
 
 # --- UTILITY ROUTES & FUNCTIONS ---
 
+def validate_upload(file, kind):
+    """Check extension and size. Returns (extension, error_message)."""
+    ext = os.path.splitext(secure_filename(file.filename or ""))[1].lower().lstrip(".")
+    allowed = ALLOWED_VIDEO_EXT if kind == "video" else ALLOWED_IMAGE_EXT
+    if ext not in allowed:
+        return None, f"Unsupported file type. Allowed: {', '.join(sorted(allowed))}."
+    file.stream.seek(0, os.SEEK_END)
+    size = file.stream.tell()
+    file.stream.seek(0)
+    limit = MAX_VIDEO_BYTES if kind == "video" else MAX_IMAGE_BYTES
+    if size > limit:
+        return None, f"File is too large (limit {limit // (1024 * 1024)} MB)."
+    return ext, None
+
+
+@app.errorhandler(413)
+def file_too_large(_error):
+    flash("The upload is too large (images 10 MB, videos 100 MB).")
+    return redirect(request.referrer or url_for("index"))
+
+
 @app.route('/uploads/<path:filename>')
+@login_required
 def uploaded_file(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 
 @app.route('/resources/<path:filename>')
+@login_required
 def resource_file(filename):
     return send_from_directory(app.config['RESOURCES_FOLDER'], filename)
+
+
+@app.route('/case_photo/<int:case_id>')
+def case_photo(case_id):
+    """Public photo for the registry. Only cases that are still missing (NF) are exposed."""
+    case = db_queries.get_case_by_id(case_id)
+    if not case or case["status"] != "NF" or not case["image_path"]:
+        abort(404)
+    return send_from_directory(app.config['UPLOAD_FOLDER'], os.path.basename(case["image_path"]))
 
 @app.route("/api/get_cities")
 def get_cities_api():
@@ -86,18 +159,26 @@ def get_cities_api():
         if os.path.exists(json_path):
             with open(json_path, 'r') as f:
                 return jsonify(json.load(f))
-    except:
-        pass
+    except (OSError, ValueError):
+        logging.exception("Could not read cities.json")
     return jsonify(["Delhi", "Mumbai", "Lucknow", "Bangalore", "Chennai"])
 
+@lru_cache(maxsize=512)
+def _geocode_city(city_name):
+    # Raises on failure so lru_cache never stores a failed lookup.
+    location = geolocator.geocode(f"{city_name}, India", timeout=10)
+    if not location:
+        raise LookupError(city_name)
+    return location.latitude, location.longitude
+
+
 def get_coords(city_name):
+    """Geocode a city (cached). Only used when a case is registered, never on page loads."""
     try:
-        location = geolocator.geocode(f"{city_name}, India", timeout=10)
-        if location:
-            return location.latitude, location.longitude
-    except (GeocoderTimedOut, Exception):
-        pass
-    return CITY_COORDS_FALLBACK.get(city_name, (None, None))
+        return _geocode_city((city_name or "").strip())
+    except Exception:
+        logging.warning("Geocoding failed for a city; using fallback coordinates.")
+    return CITY_COORDS_FALLBACK.get((city_name or "").strip().title(), (None, None))
 
 
 def is_case_active(case_id):
@@ -117,7 +198,10 @@ def create_map():
     m = folium.Map(location=[22.9734, 78.6569], zoom_start=5, tiles="CartoDB positron")
     data = get_case_counts_by_city()
     for city, counts in data.items():
-        lat, lon = get_coords(city)
+        # Coordinates are stored on the case at registration; no geocoding on dashboard loads.
+        lat, lon = counts["lat"], counts["lon"]
+        if lat is None or lon is None:
+            lat, lon = CITY_COORDS_FALLBACK.get((city or "").strip().title(), (None, None))
         if lat and lon:
             total = counts["not_found"] + counts["found"]
             color = "red" if counts["not_found"] > 0 else "green"
@@ -127,7 +211,7 @@ def create_map():
                 color=color,
                 fill=True,
                 fill_opacity=0.6,
-                popup=f"<b>{city}</b><br>Missing: {counts['not_found']}<br>Found: {counts['found']}"
+                popup=f"<b>{html.escape(str(city))}</b><br>Missing: {counts['not_found']}<br>Found: {counts['found']}"
             ).add_to(m)
     return m._repr_html_()
 
@@ -139,7 +223,7 @@ def index():
 
 @app.route("/search")
 def search_cases():
-    cases = get_all_cases_admin()
+    cases = get_public_cases()
     return render_template("search_cases.html", cases=cases)
 
 @app.route("/report_sighting", methods=["GET", "POST"])
@@ -172,10 +256,13 @@ def report_sighting():
             return redirect(url_for("report_sighting"))
 
         # 2. Save Sighting Media
+        ext, upload_error = validate_upload(file, "video" if upload_type == "video" else "image")
+        if upload_error:
+            flash(upload_error)
+            return redirect(url_for("report_sighting"))
+
         unique_id = str(uuid.uuid4())
-        original_name = secure_filename(file.filename)
-        ext = os.path.splitext(original_name)[1] or (".mp4" if upload_type == "video" else ".jpg")
-        filename = f"sighting_{unique_id}{ext}"
+        filename = f"sighting_{unique_id}.{ext}"
         filepath = os.path.join(app.config["RESOURCES_FOLDER"], filename)
         file.save(filepath)
         
@@ -196,6 +283,10 @@ def report_sighting():
                     })
             else:
                 image_np = cv2.imread(filepath)
+                if image_np is None:
+                    os.remove(filepath)
+                    flash("The uploaded file could not be read as an image. Please try another photo.")
+                    return redirect(url_for("report_sighting"))
                 results = pipeline.process_frame(image_np, is_active=is_case_active)
             inference_time = time.time() - start_time
             
@@ -256,9 +347,9 @@ def report_sighting():
             else:
                 flash(f"Sighting recorded. {faces_detected_count} faces detected, but no immediate active matches found above threshold.")
 
-        except Exception as e:
-                 logging.error(f"Sighting Error: {str(e)}")
-                 flash(f"Error: {str(e)}") # This will show the real error on the screen
+        except Exception:
+            logging.exception("Sighting processing failed")
+            flash("Something went wrong while processing the sighting. Please try again.")
 
         return redirect(url_for("report_sighting"))
         
@@ -266,16 +357,20 @@ def report_sighting():
 
 
 @app.route("/api/process_video", methods=["POST"])
+@login_required
 def process_video_api():
     file = request.files.get("video")
     if not file or not file.filename:
         return jsonify({"ok": False, "error": "Video file is required."}), 400
 
+    _, upload_error = validate_upload(file, "video")
+    if upload_error:
+        return jsonify({"ok": False, "error": upload_error}), 400
+
     if not getattr(video_pipeline, "available", False):
         return jsonify({
             "ok": False,
             "error": "Video pipeline dependencies are unavailable.",
-            "details": getattr(video_pipeline, "init_error", None),
         }), 503
 
     filename = secure_filename(file.filename)
@@ -289,9 +384,9 @@ def process_video_api():
         max_frames = request.form.get("max_frames", type=int)
         result = video_pipeline.process_video(video_path, max_frames=max_frames)
         return jsonify({"ok": True, "result": result})
-    except Exception as e:
-        logging.error(f"Video Pipeline Error: {str(e)}")
-        return jsonify({"ok": False, "error": str(e)}), 500
+    except Exception:
+        logging.exception("Video pipeline failed")
+        return jsonify({"ok": False, "error": "Video processing failed."}), 500
 
 # --- AUTH & DASHBOARD ROUTES ---
 
@@ -299,8 +394,9 @@ def process_video_api():
 def login():
     if request.method == "POST":
         username, password = request.form.get("username"), request.form.get("password")
-        user = get_user_by_username(username)
+        user = get_user_by_username(username) if (username and password) else None
         if user and bcrypt.checkpw(password.encode('utf-8'), user['password_hash'].encode('utf-8')):
+            session.clear()  # prevent session fixation
             session.update({"user": username, "role": user['role'], "name": user['name']})
             return redirect(url_for("dashboard"))
         flash("Invalid Credentials")
@@ -343,12 +439,18 @@ def dashboard():
                            found=found_count, not_found=not_found_count, 
                            user=user, cases=cases, map=map_html)
 
-@app.route("/mark_read/<int:alert_id>")
+@app.route("/mark_read/<int:alert_id>", methods=["POST"])
 @login_required
 def mark_read(alert_id):
     with get_db_connection() as conn:
-        match = conn.execute("SELECT sighting_id FROM matches WHERE id = ?", (alert_id,)).fetchone()
+        match = conn.execute("""
+            SELECT m.sighting_id, c.officer
+            FROM matches m JOIN cases c ON m.case_id = c.id
+            WHERE m.id = ?
+        """, (alert_id,)).fetchone()
         if match:
+            if session.get("role") != "Admin" and match["officer"] != session["user"]:
+                abort(403)
             conn.execute("UPDATE matches SET is_read = 1 WHERE sighting_id = ?", (match["sighting_id"],))
         conn.commit()
     return redirect(url_for("dashboard"))
@@ -377,6 +479,15 @@ def review_sighting_face(sighting_id, face_id):
         flash("Invalid review decision.")
         return redirect(url_for("sighting_detail", sighting_id=sighting_id))
 
+    owner = db_queries.get_sighting_face_owner(face_id)
+    if owner is None:
+        flash("Face review target not found.")
+        return redirect(url_for("dashboard"))
+    # Only the officer who owns the matched case (or an Admin) may review. Faces without a
+    # matched case can only be reviewed by an Admin.
+    if session.get("role") != "Admin" and owner["officer"] != session["user"]:
+        abort(403)
+
     reviewed_sighting_id = db_queries.review_sighting_face(
         sighting_face_id=face_id,
         decision=decision,
@@ -398,12 +509,20 @@ def register_case():
         city = request.form.get("city")
         file = request.files.get('image')
         
-        if not (person_name and city and file):
+        if not (person_name and city and file and file.filename):
             flash("All fields are required.")
+            return redirect(url_for("register_case"))
+
+        ext, upload_error = validate_upload(file, "image")
+        if upload_error:
+            flash(upload_error)
             return redirect(url_for("register_case"))
 
         # 1. Convert file to numpy for AI processing
         image_numpy = image_obj_to_numpy(file)
+        if image_numpy is None:
+            flash("The uploaded file could not be read as an image. Please try another photo.")
+            return redirect(url_for("register_case"))
         
         # 2. Extract high-accuracy embedding (using FaceService, not MediaPipe)
         # This fixes the accuracy issues with Ali vs Atharv
@@ -414,7 +533,7 @@ def register_case():
             return redirect(url_for("register_case"))
 
         # 3. Save the physical file
-        filename = f"{int(time.time())}_{secure_filename(file.filename)}"
+        filename = f"{uuid.uuid4().hex}.{ext}"
         filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
         file.seek(0) 
         file.save(filepath)
@@ -461,7 +580,7 @@ def register_case():
 
     return render_template("register_case.html", user=session.get("name"))
 
-@app.route("/resolve/<int:case_id>")
+@app.route("/resolve/<int:case_id>", methods=["POST"])
 @login_required
 def resolve(case_id):
     case = get_case_by_id(case_id)
@@ -526,16 +645,5 @@ def view_logs():
 
 
 
-# --- STEP 12: LOGGING CONFIGURATION ---
-os.makedirs("logs", exist_ok=True)
-logging.basicConfig(
-    filename='logs/system.log',
-    level=logging.INFO,
-    format='%(asctime)s | %(levelname)s | %(message)s'
-)
-
-
 if __name__ == "__main__":
-    app.run(debug=True)
-
-
+    app.run(debug=config.DEBUG, use_reloader=False)

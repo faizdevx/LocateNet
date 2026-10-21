@@ -90,6 +90,7 @@
                                         </div>
                                         {% endif %}
                                         <form method="post" action="{{ url_for('review_sighting_face', sighting_id=sighting.id, face_id=face.id) }}">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                             <div class="d-grid gap-2">
                                                 <button type="submit" name="decision" value="confirm_match" class="btn btn-sm btn-success">Confirm Match</button>
                                                 <button type="submit" name="decision" value="false_positive" class="btn btn-sm btn-danger">False Positive</button>
