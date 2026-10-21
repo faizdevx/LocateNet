@@ -1,5 +1,4 @@
 import sqlite3
-import os
 import config
 import cv2
 import numpy as np
