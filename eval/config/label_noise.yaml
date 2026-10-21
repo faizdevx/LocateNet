@@ -1,0 +1,11 @@
+# Highest-scoring impostor comparisons (LFW label noise, look-alikes); listed, not removed
+experiment: label_noise
+gallery_size: 1000
+top_n: 8
+nonmated_frac: 0.3
+max_probes_per_identity: 10
+merge_duplicate_identities: true
+identity_aliases:
+  John_Gruden: Jon_Gruden
+  Stephen_Ebberharter: Stephan_Eberharter
+seed: 0

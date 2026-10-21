@@ -29,7 +29,7 @@ reset-data:
 	$(BIN)/python clean_system.py
 
 # --- Evaluation (Week 2). Datasets go to data/ and caches to eval/cache/ (both git-ignored). ---
-EVAL_ORDER = embed_lfw verification openset operating_point calibration bias robustness quality detection latency
+EVAL_ORDER = embed_lfw verification openset openset_nomerge operating_point calibration bias robustness quality detection detsize_check latency label_noise
 
 eval-data:
 	$(BIN)/pip install -r requirements-eval.txt

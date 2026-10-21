@@ -21,6 +21,7 @@ EXPERIMENTS = {
     "detection": "eval.protocols.detection",
     "latency": "eval.protocols.latency",
     "detsize_check": "eval.protocols.detsize_check",
+    "label_noise": "eval.protocols.label_noise",
     "smoke": "eval.protocols.smoke",
 }
 

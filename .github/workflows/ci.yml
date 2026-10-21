@@ -26,4 +26,28 @@ jobs:
         run: ruff check .
 
       - name: Test
-        run: pytest
+        run: pytest   # tests/eval is skipped automatically without requirements-eval.txt
+
+  eval-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: |
+            requirements-dev.txt
+            requirements-eval.txt
+
+      # Still no face models: metric tests use synthetic scores and the smoke run uses a stub
+      # face service on ~20 synthetic images. It checks the harness end to end, not accuracy.
+      - name: Install eval dependencies
+        run: pip install -r requirements-dev.txt -r requirements-eval.txt
+
+      - name: Metric and protocol unit tests
+        run: pytest tests/eval
+
+      - name: Eval smoke run
+        run: python -m eval run eval/config/smoke.yaml
