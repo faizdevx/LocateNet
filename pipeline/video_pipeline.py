@@ -101,7 +101,9 @@ class VideoPipeline:
             cv2.imwrite(full_path, face_crop)
             face_crop_path = f"resources/video_frames/{filename}"
 
-        body_embedding = self.reid_service.extract_feature(person_crop)
+        body_embedding = (
+            self.reid_service.extract_feature(person_crop) if self.reid_service is not None else None
+        )
         return {
             "track_bbox": [x1, y1, x2, y2],
             "face_bbox": [int(fx1), int(fy1), int(fx2), int(fy2)],

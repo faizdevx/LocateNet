@@ -62,9 +62,10 @@ class DetectionPipeline:
 
         self.search_svc.add_face_embedding(face_emb, person_id)
 
-        body_emb = self.reid_service.extract_feature(frame)
-        if body_emb is not None:
-            self.search_svc.add_body_embedding(body_emb)
-            self.search_svc.save_index()
+        if self.reid_service is not None:
+            body_emb = self.reid_service.extract_feature(frame)
+            if body_emb is not None:
+                self.search_svc.add_body_embedding(body_emb)
+                self.search_svc.save_index()
 
         return True

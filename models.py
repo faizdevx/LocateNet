@@ -3,7 +3,6 @@ import os
 import cv2
 import numpy as np
 import json
-import mediapipe as mp
 from datetime import datetime
 from contextlib import contextmanager
 
@@ -18,20 +17,6 @@ def get_db_connection():
         yield conn
     finally:
         conn.close()
-
-# --- BIOMETRIC INITIALIZATION ---
-try:
-    import mediapipe.python.solutions.face_mesh as mp_face_mesh
-except (ImportError, AttributeError):
-    import mediapipe.solutions.face_mesh as mp_face_mesh
-
-face_mesh_processor = mp_face_mesh.FaceMesh(
-    static_image_mode=True, 
-    max_num_faces=1, 
-    min_detection_confidence=0.5
-)
-
-
 
 # --- SIGHTING & EMBEDDING MANAGEMENT ---
 
@@ -74,51 +59,6 @@ class PublicSubmissions:
         self.birth_marks = birth_marks
         self.status = status
         self.image_path = image_path
-
-# --- CORE BIOMETRIC ENGINE ---
-
-def extract_face_vector(image_numpy):
-    if image_numpy is None: return None
-    rgb_image = cv2.cvtColor(image_numpy, cv2.COLOR_BGR2RGB)
-    results = face_mesh_processor.process(rgb_image)
-    if not results.multi_face_landmarks: return None
-    
-    landmarks = results.multi_face_landmarks[0].landmark
-    vector = np.array([[lm.x, lm.y, lm.z] for lm in landmarks]).flatten()
-    return vector.tolist()
-
-class MatchingEngine:
-    @staticmethod
-    def calculate_similarity(v1, v2):
-        vec1, vec2 = np.array(v1), np.array(v2)
-        dot_product = np.dot(vec1, vec2)
-        norm_v1 = np.linalg.norm(vec1)
-        norm_v2 = np.linalg.norm(vec2)
-        return (dot_product / (norm_v1 * norm_v2)) * 100
-
-    @staticmethod
-    def find_matches(sighting_id, sighting_vector, threshold=90.0):
-        matches = []
-        current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        with get_db_connection() as conn:
-            cases = conn.execute("SELECT id, person_name, officer, face_vector FROM cases WHERE status='NF'").fetchall()
-            for case in cases:
-                if case['face_vector']:
-                    stored_vector = json.loads(case['face_vector'])
-                    score = MatchingEngine.calculate_similarity(sighting_vector, stored_vector)
-                    
-                    if score >= threshold:
-                        conn.execute("""
-                            INSERT INTO matches (case_id, sighting_id, confidence, date_detected)
-                            VALUES (?, ?, ?, ?)
-                        """, (case['id'], sighting_id, round(score, 2), current_time))
-                        conn.commit()
-                        
-                        matches.append({
-                            "name": case['person_name'],
-                            "confidence": round(score, 2)
-                        })
-        return matches
 
 # --- REFINED DATABASE CORE ---
 

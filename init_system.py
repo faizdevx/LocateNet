@@ -1,10 +1,10 @@
 import sqlite3
 import bcrypt
+import config
 from models import create_db, DB_NAME
 
 # New imports for AI services
 from services.face_service import FaceService
-from services.reid_service import ReIDService
 from vector_db.search_service import SearchService
 from pipeline.detection_pipeline import DetectionPipeline
 
@@ -42,7 +42,7 @@ def init_ai_systems():
     
     # Instantiate services
     face_service = FaceService()
-    reid_service = ReIDService()
+    reid_service = ReIDService() if config.ENABLE_REID else None
     search_service = SearchService()
 
     # Initialize the pipeline with the services

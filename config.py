@@ -28,3 +28,6 @@ MATCH_THRESHOLD = _env_float("MATCH_THRESHOLD", 0.45)         # cosine; alert on
 HIGH_CONF_THRESHOLD = _env_float("HIGH_CONF_THRESHOLD", 0.60)
 DET_SCORE_MIN = _env_float("DET_SCORE_MIN", 0.6)              # minimum face detector score
 TOP_K = _env_int("TOP_K", 5)                                  # FAISS neighbours inspected per face
+
+# Body ReID is a placeholder (untrained head), so it is off by default.
+ENABLE_REID = _env_bool("ENABLE_REID", False)

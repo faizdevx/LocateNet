@@ -12,10 +12,10 @@ from geopy.exc import GeocoderTimedOut
 import logging
 
 # Internal project imports
+import config
 from models import *
 from services.alert_service import AlertService
 from services.face_service import FaceService
-from services.reid_service import ReIDService
 from vector_db.search_service import SearchService
 from pipeline.detection_pipeline import DetectionPipeline
 from pipeline.video_pipeline import VideoPipeline
@@ -34,7 +34,11 @@ app.config["RESOURCES_FOLDER"] = RESOURCES_FOLDER
 # --- AI PIPELINE INITIALIZATION (ADD THIS HERE) ---
 # These must be global so all routes can access them
 face_svc = FaceService()
-reid_svc = ReIDService()
+if config.ENABLE_REID:
+    from services.reid_service import ReIDService
+    reid_svc = ReIDService()
+else:
+    reid_svc = None
 search_svc = SearchService()
 pipeline = DetectionPipeline(face_svc, reid_svc, search_svc)
 video_pipeline = VideoPipeline(face_svc, reid_svc, search_svc)
