@@ -152,7 +152,13 @@ Correctness, security and reproducibility pass. No new features and no UI redesi
 ### 4. Upload validation (type and size are checked, errors are friendly)
 <img src="app_snaps/week1_04_upload_validation.png" width="900">
 
-Screenshots use demo data only.
+### 5. Officer review screen: possible match (53.8% similarity) with Confirm / False Positive / Ignore
+<img src="app_snaps/week1_05_review_faces.png" width="900">
+
+### 6. Public registry: only missing cases, with name, city, date and photo
+<img src="app_snaps/week1_06_public_registry.png" width="900">
+
+Screenshots are from a demo run with two test photos.
 
 ## Installation
 
