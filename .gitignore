@@ -26,3 +26,10 @@ vector_db/storage/
 # OS/editor noise
 .DS_Store
 Thumbs.db
+
+# Runtime data, PII and model weights (never commit these)
+resources/
+uploads/
+*.pt
+*.onnx
+.env
