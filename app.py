@@ -14,7 +14,7 @@ import logging
 # Internal project imports
 import config
 from models import *
-from services.alert_service import AlertService
+from services.alert_service import AlertService, normalize_location
 from services.face_service import FaceService
 from vector_db.search_service import SearchService
 from pipeline.detection_pipeline import DetectionPipeline
@@ -162,6 +162,8 @@ def report_sighting():
             flash("Please upload an image or video before submitting.")
             return redirect(url_for("report_sighting"))
 
+        location = normalize_location(location)
+
         if upload_type == "video" and not getattr(video_pipeline, "available", False):
             flash("Video upload is not ready because video AI dependencies are not installed yet.")
             return redirect(url_for("report_sighting"))
@@ -238,10 +240,11 @@ def report_sighting():
                 top_match = max(active_matches, key=lambda x: x["similarity"])
                 add_match_to_db(top_match["case_id"], unique_id, top_match["percentage"])
 
-            # 6. Step 11: Hotspot Alert Logic
-            is_hotspot, count = AlertService.check_repeated_sightings(location, location, "face")
-            if is_hotspot:
-                flash(f"🔥 HOTSPOT: This person has been seen {count} times in this area recently!")
+                # 6. Hotspot alert: the same case matched repeatedly in one city within 48h
+                is_hotspot, hotspot_count = AlertService.check_repeated_sightings(top_match["case_id"], location)
+                if is_hotspot:
+                    hotspot_case = db_queries.get_case_by_id(top_match["case_id"])
+                    flash(f"HOTSPOT: {hotspot_case['person_name']} has been matched {hotspot_count} times in this area in the last 48 hours!")
 
             # 7. Final Response to User
             if active_matches:

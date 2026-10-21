@@ -44,7 +44,7 @@
                     <div class="border rounded p-5 text-center text-muted">Original image unavailable.</div>
                     {% endif %}
                     <div class="mt-3 small text-muted">
-                        <div><strong>Location:</strong> {{ sighting.location }}</div>
+                        <div><strong>Location:</strong> {{ sighting.location|title }}</div>
                         <div><strong>Submitted By:</strong> {{ sighting.submitted_by }}</div>
                         <div><strong>Date:</strong> {{ sighting.date_submitted }}</div>
                     </div>

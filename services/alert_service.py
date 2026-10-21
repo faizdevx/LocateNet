@@ -1,25 +1,30 @@
-import sqlite3
 from datetime import datetime, timedelta
-from models import DB_NAME, get_db_connection
+
+from models import get_db_connection
+
+
+def normalize_location(location):
+    return (location or "").strip().lower()
+
 
 class AlertService:
     @staticmethod
-    def check_repeated_sightings(location, city, embedding_type, threshold=3):
+    def check_repeated_sightings(case_id, location, window_hours=48, threshold=3):
         """
-        Rule: If similar reports >= 3 within 48h in same city -> Trigger High Priority Alert.
+        Hotspot rule: the same case matched >= threshold times in the same city within window_hours.
+        Returns (is_hotspot, count).
         """
-        forty_eight_hours_ago = (datetime.now() - timedelta(hours=48)).strftime("%Y-%m-%d %H:%M:%S")
-        
+        cutoff = (datetime.now() - timedelta(hours=window_hours)).strftime("%Y-%m-%d %H:%M:%S")
+        city = normalize_location(location)
+
         with get_db_connection() as conn:
-            # Count sightings in the same city/location recently
-            query = """
-                SELECT COUNT(*) FROM sightings 
-                WHERE location LIKE ? 
-                AND timestamp > ?
-                AND embedding_type = ?
-            """
-            count = conn.execute(query, (f"%{city}%", forty_eight_hours_ago, embedding_type)).fetchone()[0]
-            
-            if count >= threshold:
-                return True, count
-        return False, count
+            count = conn.execute("""
+                SELECT COUNT(*)
+                FROM matches m
+                JOIN public_submissions p ON m.sighting_id = p.id
+                WHERE m.case_id = ?
+                  AND LOWER(TRIM(p.location)) = ?
+                  AND m.date_detected > ?
+            """, (case_id, city, cutoff)).fetchone()[0]
+
+        return count >= threshold, count

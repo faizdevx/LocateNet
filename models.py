@@ -18,34 +18,6 @@ def get_db_connection():
     finally:
         conn.close()
 
-# --- SIGHTING & EMBEDDING MANAGEMENT ---
-
-def add_sighting(embedding_type, vector, location, image_path):
-    """
-    Logs a new detection (face or body) into the sightings table.
-    """
-    current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    with get_db_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute("""
-            INSERT INTO sightings (embedding_type, embedding_vector, location, timestamp, image_path)
-            VALUES (?, ?, ?, ?, ?)
-        """, (embedding_type, json.dumps(vector), location, current_time, image_path))
-        conn.commit()
-        return cursor.lastrowid
-
-def get_recent_sightings(limit=10):
-    """
-    Fetches the latest sightings for the dashboard.
-    """
-    with get_db_connection() as conn:
-        return conn.execute("""
-            SELECT * FROM sightings 
-            ORDER BY timestamp DESC 
-            LIMIT ?
-        """, (limit,)).fetchall()
-    
-    
 # --- DATA MODELS --- #
 
 class PublicSubmissions:
@@ -134,27 +106,6 @@ def create_db():
                 FOREIGN KEY(sighting_id) REFERENCES public_submissions(id)
             )""")
 
-        # NEW: Sightings Table
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS sightings (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                embedding_type TEXT, -- 'face' or 'body'
-                embedding_vector TEXT, -- JSON string of the vector
-                location TEXT,
-                timestamp TEXT,
-                image_path TEXT
-            )""")
-
-        # NEW: Global Embeddings Table (For master vector storage)
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS embeddings (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                entity_id TEXT, -- case_id or user_id
-                entity_type TEXT,
-                vector TEXT,
-                created_at TEXT
-            )""")
-            
         conn.commit()
 
 # --- AUTH & DASHBOARD FUNCTIONS ---
