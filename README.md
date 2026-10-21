@@ -136,6 +136,24 @@ LocateNet
 ### 7. Officer Verification (Found / Not Found)
 <img src="app_snaps/12.png" width="900">
 
+## Week 1 Upgrade (October 2026)
+
+Correctness, security and reproducibility pass. No new features and no UI redesign.
+
+### 1. Login (CSRF-protected form, secret key from `.env`)
+<img src="app_snaps/week1_01_login.png" width="900">
+
+### 2. Hotspot alert: same case matched 3 times in one city within 48 hours
+<img src="app_snaps/week1_02_hotspot_flash.png" width="900">
+
+### 3. Officer alerts show raw similarity and say a human must review
+<img src="app_snaps/week1_03_officer_dashboard.png" width="900">
+
+### 4. Upload validation (type and size are checked, errors are friendly)
+<img src="app_snaps/week1_04_upload_validation.png" width="900">
+
+Screenshots use demo data only.
+
 ## Installation
 
 Requires Python 3.11 or 3.12.
