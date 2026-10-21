@@ -35,6 +35,31 @@ def load_manifest(data_dir="data"):
     return pd.DataFrame(rows, columns=["image_path", "identity_id", "split", "attrs"])
 
 
+def _name_tokens(name):
+    return frozenset(t for t in name.lower().replace("-", "_").split("_") if t)
+
+
+def identity_aliases(names, extra_aliases=None):
+    """
+    LFW files some people under two names. Merge them without looking at any face data:
+      * names with the same tokens in a different order (e.g. Yingfan_Wang / Wang_Yingfan)
+      * an explicit list of spelling variants (eval/config/openset.yaml: identity_aliases)
+    Returns {alias_name: canonical_name}; canonical = alphabetically first name.
+    """
+    by_tokens = {}
+    for n in sorted(names):
+        by_tokens.setdefault(_name_tokens(n), []).append(n)
+    alias = {}
+    for group in by_tokens.values():
+        for n in group[1:]:
+            alias[n] = group[0]
+    for a, b in (extra_aliases or {}).items():
+        if a in names and b in names:
+            canon = min(a, b)
+            alias[max(a, b)] = canon
+    return alias
+
+
 def load_pairs(data_dir="data"):
     """Official View 2 pairs: 10 folds of 300 matched + 300 mismatched pairs.
     Returns a DataFrame with columns fold, path_a, path_b, same."""
