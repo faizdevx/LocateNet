@@ -58,8 +58,12 @@ def warning_text(years_old, estimate, threshold_years):
     text = f"Reference photo is ~{years_old:.0f} years old."
     if estimate:
         who = {"child_enrolment": "photos taken before age 18", "adult_enrolment": "adult photos"}.get(estimate["table"], "all photos")
-        text += (f" Expected miss rate at this gap: ~{estimate['fnmr']:.0%} (FG-NET, {who}, {estimate['bucket']} years; "
-                 "see docs/EVALUATION.md).")
+        upper = estimate["fnmr_ci"][1] if estimate.get("fnmr_ci") else estimate["fnmr"]
+        if max(estimate["fnmr"], upper) < 0.03:  # tiny measured rate: say "low", do not print a false-precise 0%
+            rate = f"low, under 3% ({who}, {estimate['bucket']} years; small FG-NET sample)"
+        else:
+            rate = f"~{estimate['fnmr']:.0%} (FG-NET, {who}, {estimate['bucket']} years)"
+        text += f" Expected miss rate at this gap: {rate}; see docs/EVALUATION.md."
     return text + " Consider adding a recent photo."
 
 
