@@ -2,19 +2,17 @@ import json
 import logging
 import os
 
-from models import get_db_connection
+import faiss
+
+from models import active_template_rows
 
 
 def load_active_vectors():
-    """Return (case_id, vector) for every NF case that has a stored face vector."""
+    """(case_embeddings.id, vector) for every active reference photo of a case that is still missing."""
     items = []
-    with get_db_connection() as conn:
-        rows = conn.execute(
-            "SELECT id, face_vector FROM cases WHERE status = 'NF' AND face_vector IS NOT NULL"
-        ).fetchall()
-    for row in rows:
+    for row in active_template_rows():
         try:
-            vector = json.loads(row["face_vector"])
+            vector = json.loads(row["embedding"])
         except (TypeError, ValueError):
             continue
         if vector:
@@ -22,20 +20,28 @@ def load_active_vectors():
     return items
 
 
+def index_ids(search_service):
+    index = search_service.face_index
+    if index.ntotal == 0:
+        return set()
+    return {int(i) for i in faiss.vector_to_array(index.id_map)}
+
+
 def rebuild_face_index(search_service):
-    """Rebuild face_index.bin from cases.face_vector WHERE status='NF'. Returns the vector count."""
+    """Rebuild face_index.bin from case_embeddings (one vector per photo id). Returns the vector count."""
     return search_service.rebuild_face_index(load_active_vectors())
 
 
 def ensure_index_in_sync(search_service):
-    """Rebuild the index when the file is missing or its size disagrees with the SQL count."""
-    expected = len(load_active_vectors())
+    """Rebuild when the index file is missing or its vector ids differ from the active photos in SQL
+    (this also migrates a Week 2 index, whose ids were case ids)."""
+    expected = {vid for vid, _ in load_active_vectors()}
     file_missing = not os.path.exists(search_service.face_bin)
-    actual = search_service.face_index.ntotal
-    if (file_missing and expected > 0) or actual != expected:
+    actual = index_ids(search_service)
+    if (file_missing and expected) or actual != expected:
         logging.warning(
-            "FAISS index out of sync (index=%s, SQL active cases=%s, file_missing=%s). Rebuilding.",
-            actual, expected, file_missing,
+            "FAISS index out of sync (index=%s vectors, SQL active photos=%s, file_missing=%s). Rebuilding.",
+            len(actual), len(expected), file_missing,
         )
         rebuild_face_index(search_service)
         return True

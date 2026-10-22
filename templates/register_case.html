@@ -73,10 +73,32 @@
                         <div id="cityStatus" class="form-text text-muted">Connecting to server for sync...</div>
                     </div>
 
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-6">
+                            <label for="dob" class="form-label fw-bold">Date of birth <span class="text-muted fw-normal">(optional)</span></label>
+                            <input type="date" class="form-control" id="dob" name="dob">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="age" class="form-label fw-bold">Or approximate age now <span class="text-muted fw-normal">(optional)</span></label>
+                            <input type="number" class="form-control" id="age" name="age" min="0" max="120" step="1">
+                        </div>
+                    </div>
+
                     <div class="mb-4">
-                        <label for="image" class="form-label fw-bold">Upload Recent Photograph</label>
-                        <input type="file" class="form-control" id="image" name="image" accept="image/*" onchange="previewImage(event)" required>
-                        <div id="fileHelp" class="form-text text-danger">High quality images improve recognition accuracy.</div>
+                        <label class="form-label fw-bold">Reference Photographs (up to {{ max_photos }})</label>
+                        <div class="form-text mb-2">Add the most recent photo first, then older photos from different years and angles.
+                            Each photo is checked for a clear, large enough face; rejected photos are listed after saving.</div>
+                        {% for i in range(max_photos) %}
+                        <div class="row g-2 mb-2">
+                            <div class="col-8">
+                                <input type="file" class="form-control" name="images" accept="image/*" {% if i == 0 %}required onchange="previewImage(event)"{% endif %}>
+                            </div>
+                            <div class="col-4">
+                                <input type="month" class="form-control" name="photo_dates" title="Approx. month the photo was taken (optional)">
+                            </div>
+                        </div>
+                        {% endfor %}
+                        <div class="form-text">Right column: approximate month the photo was taken (optional). It is used to warn about old photos.</div>
                         <img id="imagePreview" alt="Image Preview">
                     </div>
 

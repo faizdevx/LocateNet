@@ -51,3 +51,8 @@ jobs:
 
       - name: Eval smoke run
         run: python -m eval run eval/config/smoke.yaml
+
+      # Regression gate on the smoke config: fails when deterministic harness / matcher / track
+      # metrics change (the full gate, `make eval-regress`, needs the datasets and runs locally).
+      - name: Regression gate (smoke)
+        run: python -m eval regress --smoke

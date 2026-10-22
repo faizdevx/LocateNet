@@ -57,6 +57,21 @@ def headline(R):
             txt += f" [{rci[0]:.2f}, {rci[1]:.2f}]"
         rows.append(("Worst/best group FMR ratio at pooled FMR 1e-4" + (" (LFW fallback; Indian group too small to measure)"
                      if "FALLBACK" in b.get("data", "") else ""), txt))
+    ag = R.get("age_gap")
+    if ag:
+        ch = ag["fgnet_1to1"]["child_enrolment"]
+        last = list(ch)[-1]
+        rows.append((f"FNMR, child enrolment vs {list(ch)[0]} y / {last} y age gap (FG-NET)",
+                     f"{pct(ch[list(ch)[0]]['fnmr'], 1)} / {pct(ch[last]['fnmr'], 1)} {ci(ch[last]['fnmr_ci'], 1)}"))
+    vid = R.get("video")
+    if vid:
+        st = vid["strategies"]
+        rows.append(("Video aggregation vs best frame (SYNTHETIC tracks): FNIR / FAISS searches",
+                     f"{pct(st['quality_weighted_mean']['split']['test_fnir'], 1)} vs {pct(st['best_frame']['split']['test_fnir'], 1)}; "
+                     f"{st['quality_weighted_mean']['split']['faiss_calls_test']} vs {st['best_frame']['split']['faiss_calls_test']} "
+                     f"searches (no accuracy gain; ID-switch split cuts misses on glued tracks from "
+                     f"{pct(st['quality_weighted_mean']['no_split']['contaminated_tracks']['test_fnir'], 0)} to "
+                     f"{pct(st['quality_weighted_mean']['split']['contaminated_tracks']['test_fnir'], 0)})"))
     if r:
         w = r["minimum_usable_face_width"]["width_px"]
         rows.append(("Minimum usable face width", "n/a" if w is None else f"{w} px"))
@@ -88,7 +103,21 @@ def sec_embed(R):
         f"{f['low_quality']}; no face found: {f['no_face']}.",
         f"- **Failure-to-enrol rate (FTE): {pct(f['fte_rate'], 3)}.** Failed images stay in the protocols as misses.",
         "",
-    ])
+    ] + _fte_table(R))
+
+
+def _fte_table(R):
+    rows = []
+    for name, label in (("embed_lfw", "LFW"), ("embed_calfw", "CALFW"), ("embed_fgnet", "FG-NET")):
+        e = R.get(name)
+        if e and e.get("fte_single_pass"):
+            rows.append(f"| {label} | {e['fte']['n_images']} | {pct(e['fte_single_pass']['fte_rate'], 2)} | {pct(e['fte']['fte_rate'], 2)} |")
+    if not rows:
+        return []
+    return ["Close-up portraits defeat single-pass detection: SCRFD misses faces that fill the frame. Since Week 3 "
+            "`FaceService` retries once on the image centred in a 2x canvas when no face passes `DET_SCORE_MIN` "
+            "(`DETECT_PAD_RETRY`, on by default):", "",
+            "| Dataset | Images | FTE single pass | FTE with pad-and-retry |", "|---|---|---|---|"] + rows + [""]
 
 
 def sec_verification(R):
@@ -288,6 +317,177 @@ def sec_bias(R):
     return "\n".join(lines)
 
 
+def sec_age_gap(R):
+    a = R.get("age_gap")
+    if not a:
+        return ""
+    lines = ["## Age gap (missing people found years later)", "", f"**{a['headline']}.**", "", a["protocol"], "",
+             f"Production threshold {num(a['threshold'])}. FG-NET failure to enrol: {pct(a['fgnet_fte'], 1)} "
+             "(with the pad-and-retry detection step; single-pass detection failed on about half of these close-up "
+             "portraits, see section 1).", "",
+             "| Age gap | Genuine pairs | FNMR all [95% CI] | FNMR child enrolment | FNMR adult enrolment | TAR @ FAR 1e-3 | FMR (age-matched impostors) |",
+             "|---|---|---|---|---|---|---|"]
+    allb, ch, ad = a["fgnet_1to1"]["all"], a["fgnet_1to1"]["child_enrolment"], a["fgnet_1to1"]["adult_enrolment"]
+    for b, v in allb.items():
+        c = ch.get(b)
+        d = ad.get(b)
+        lines.append(f"| {b} y | {v['n_genuine']} | {pct(v['fnmr'], 1)}{ci(v['fnmr_ci'], 1)} | "
+                     f"{pct(c['fnmr'], 1) + ci(c['fnmr_ci'], 1) if c else 'n<20'} | "
+                     f"{pct(d['fnmr'], 1) + ci(d['fnmr_ci'], 1) if d else 'n<20'} | {pct(v['tar_at_far_1e-3'], 1)} | "
+                     f"{pct(v['fmr'], 2)} |")
+    lines += ["", img(a["plot"], "FNMR by age gap"), ""]
+    o = a["fgnet_openset"]
+    lines += ["Open-set on FG-NET (gallery: earliest photo of each of "
+              f"{o['n_gallery_subjects']} subjects + {o['n_distractors']} LFW distractors; "
+              f"{o['n_nonmated_probes']} non-mated searches; FPIR 1% threshold {num(o['threshold_fpir1'])}; "
+              f"FPIR at the production threshold on this mix {pct(o['fpir_at_production_threshold'])}):", "",
+              "| Age gap | Probes | Rank-1 | FNIR @ FPIR 1% | FNIR @ production threshold |", "|---|---|---|---|---|"]
+    for b, v in o["by_gap"].items():
+        lines.append(f"| {b} y | {v['n_probes']} | {pct(v['rank1'], 1)}{ci(v['rank1_ci'], 1)} | "
+                     f"{pct(v['fnir_fpir1'], 1)}{ci(v['fnir_fpir1_ci'], 1)} | {pct(v['fnir_production'], 1)} |")
+    c = a.get("calfw_1to1")
+    if c:
+        lines += ["", f"CALFW (cross-age LFW, {c['n_pairs']} official pairs, no per-image ages): accuracy "
+                  f"{pct(c['accuracy_mean'])} ± {pct(c['accuracy_std'])} vs {pct(a['lfw_reference']['accuracy_enrolled_pairs_mean'])} "
+                  f"on LFW; TAR @ FAR 1e-3 {pct(c['tar_at_far_1e-3'])} vs {pct(a['lfw_reference']['tar_at_far_1e-3'])}; "
+                  f"at the production threshold FNMR {pct(c['fnmr_at_production_threshold'])}, FMR "
+                  f"{pct(c['fmr_at_production_threshold'], 3)}."]
+    lines += ["", f"AgeDB-30: {a.get('agedb')}.", "",
+              "Interpretation: the model is close to age-invariant for adults over these gaps, but not for children. A "
+              "photo taken before 18 loses most of its value within about 10 years, which is exactly the missing-child "
+              "case. Impostor pairs of very young children are also matched more often (higher FMR at small gaps), "
+              "because young children look alike. FG-NET is small (82 subjects, scanned prints), so treat the shape "
+              "of the curve as solid and the exact percentages as approximate.", ""]
+    return "\n".join(lines)
+
+
+def sec_multi_template(R):
+    m = R.get("multi_template")
+    if not m:
+        return ""
+    ks, strategies = m["ks"], m["strategies"]
+
+    def table(title, d):
+        out = [f"**{title}** (test FNIR at FPIR 1%, threshold chosen per strategy on tune; tune threshold in brackets)", "",
+               "| k | " + " | ".join(strategies) + " |", "|---|" + "---|" * len(strategies)]
+        for k in ks:
+            out.append(f"| {k} | " + " | ".join(
+                f"{pct(d[str(k)][s]['test_fnir'], 1)} ({d[str(k)][s]['threshold_fpir1_tune']:.3f})" for s in strategies) + " |")
+        return out + [""]
+    lines = ["## Multi-photo case templates", "", m["protocol"], ""]
+    lines += table("LFW, identities with >= 6 photos", m["lfw"])
+    lines += ["| k | " + " | ".join(f"FPIR at {m['production_threshold']} ({s})" for s in strategies) + " |",
+              "|---|" + "---|" * len(strategies)]
+    for k in ks:
+        lines.append(f"| {k} | " + " | ".join(pct(m["lfw"][str(k)][s]["fpir_at_production_threshold"], 2) for s in strategies) + " |")
+    lines += [""]
+    lines += table("FG-NET, random enrolment photos", m["fgnet"]["random"])
+    lines += table("FG-NET, age-diverse enrolment photos", m["fgnet"]["age_diverse"])
+    sz = m["fgnet_sizes"]["test"]
+    lines += [img(m["plot"], "Multi-template results"), "",
+              f"Chosen default `TEMPLATE_STRATEGY = {m['chosen_strategy']}` (lowest mean test FNIR over k >= 2: "
+              + ", ".join(f"{s} {pct(v, 2)}" for s, v in m["mean_fnir_k_ge_2"].items()) + ").", "",
+              "Interpretation: on LFW every strategy finds every probe (FNIR 0), so LFW cannot rank them; it does show "
+              "the cost of `max`: with more photos per case the impostor scores rise, the FPIR-1% threshold climbs and, at "
+              "one fixed production threshold, FPIR grows. On FG-NET (aging children, the real use case) more photos "
+              "help a lot, and which photos matters more than how they are combined: one age-diverse pick (the most recent "
+              "earlier photo) beats several random ones. "
+              f"FG-NET test has only {sz['n_gallery_subjects']} gallery subjects and {sz['n_mated_probes']} mated probes, so "
+              "single-point differences between strategies are noise; the trend with k and with age-diverse picks is not.", ""]
+    return "\n".join(lines)
+
+
+def sec_age_mitigation(R):
+    a = R.get("age_mitigation")
+    m = R.get("multi_template")
+    if not a:
+        return ""
+    lines = ["## Age mitigations (what helped, what did not)", ""]
+    if m:
+        fr, fa = m["fgnet"]["random"], m["fgnet"]["age_diverse"]
+        lines += [f"1. **Age-diverse enrolment guidance: shipped.** On FG-NET one well-chosen photo (the most recent earlier "
+                  f"photo) gives test FNIR {pct(fa['1']['max']['test_fnir'], 1)} vs {pct(fr['1']['max']['test_fnir'], 1)} for a random one, and five "
+                  f"age-diverse photos give {pct(fa['5']['max']['test_fnir'], 1)}. The register form now asks for the most recent photo "
+                  "first and older photos from other years; the case page shows the expected miss rate for the age of "
+                  "the newest photo.", ""]
+    lines += ["2. **Recency weighting: not shipped (negative / inconclusive).** " + a["protocol"], "",
+              "| Strategy | tau (years) | Test FNIR [95% CI] | Tune threshold |", "|---|---|---|---|"]
+    for strat, d in a["results"].items():
+        for tau, v in d.items():
+            lines.append(f"| {strat} | {tau if tau != 'None' else 'none'} | {pct(v['test_fnir'], 1)}{ci(v['test_fnir_ci'], 1)} | "
+                         f"{num(v['threshold_fpir1_tune'])} |")
+    lines += ["", "With `max` every recency setting is worse; with `quality_weighted_mean` tau = 5 is better on paper but its "
+              "CI overlaps the baseline. `ENABLE_RECENCY_WEIGHTING` stays off.", "",
+              "3. **Age-gap warning: shipped.** When the newest reference photo is more than `AGE_GAP_WARNING_YEARS` "
+              "(5) years old, the case page, the officer's alerts and the sighting page show e.g. \"Reference photo is "
+              "~8 years old. Expected miss rate at this gap: ~17% ...\"; the percentage is read at start-up from "
+              "`eval/results/age_gap.json` (child or adult table by age at the photo).", "",
+              f"4. **Learned age-robust adapter: not attempted.** {a['adapter']}. Week 4 candidate.", ""]
+    return "\n".join(lines)
+
+
+def sec_video(R):
+    v = R.get("video")
+    if not v:
+        return ""
+    lines = ["## Video: track aggregation and hygiene", "",
+             "> **Synthetic fallback.** YouTube Faces needs a request; these tracks are degraded LFW stills, not real "
+             "video (no motion blur, pose change or real tracker errors). Treat them as a check of the logic.", "",
+             v["protocol"], "",
+             f"Frames per track {v['sizes']['test']['frames_per_track']}; test split: {v['sizes']['test']['gallery_tracks']} "
+             f"clean mated tracks, {v['sizes']['test']['contaminated_tracks']} ID-switched tracks, "
+             f"{v['sizes']['test']['nonmated_tracks']} non-mated tracks; frame failure to enrol {pct(v['frame_fte'], 1)}. "
+             f"TRACK_SPLIT_THRESHOLD = {v['track_split_threshold']} (tune accuracy at spotting ID switches "
+             f"{pct(v['track_split_tune_accuracy'], 1)}).", "",
+             "| Strategy | Track split | FNIR all | FNIR clean tracks | FNIR ID-switched tracks | FAISS searches (test) |",
+             "|---|---|---|---|---|---|"]
+    for s_name, d in v["strategies"].items():
+        for hyg, r in d.items():
+            lines.append(f"| {s_name} | {'yes' if hyg == 'split' else 'no'} | {pct(r['test_fnir'], 1)}{ci(r['test_fnir_ci'], 1)} | "
+                         f"{pct(r['clean_tracks']['test_fnir'], 1)} | {pct(r['contaminated_tracks']['test_fnir'], 1)} | "
+                         f"{r['faiss_calls_test']} |")
+    lines += ["", "| Frame stride | FNIR [95% CI] | CPU seconds per minute of video |", "|---|---|---|"]
+    for k, r in v["stride"].items():
+        sp = (v.get("speed") or {}).get(k, {})
+        lines.append(f"| {k} | {pct(r['test_fnir'], 1)}{ci(r['test_fnir_ci'], 1)} | "
+                     f"{sp.get('seconds_per_video_minute', float('nan')):.0f} |")
+    lines += ["", img(v["plot"], "Video aggregation"), "",
+              f"Decision: `TRACK_AGG_STRATEGY = {v['chosen_strategy']}` (no strategy beat the baseline; aggregation only "
+              "saves FAISS searches, which cost milliseconds), `ENABLE_TRACK_SPLIT = True` at "
+              f"{v['track_split_threshold']} (without it, aggregated strategies miss 11-30% of ID-switched tracks), "
+              "`VIDEO_FRAME_STRIDE = 5`.", "",
+              "Interpretation: on CPU the video pipeline runs far slower than real time even at stride 10 (YOLO + all "
+              "five buffalo_l models on every person in every sampled frame), so long CCTV clips need a GPU or "
+              "pre-trimming. Per track, officers now see the three best frames, the time span and the number of "
+              "frames used. A real-video evaluation (YTF or own CCTV with consent) is still required.", ""]
+    mild = R.get("video_mild")
+    if mild:
+        lines += [f"Mild-degradation run (`eval/results/video_mild.json`): every strategy reaches FNIR "
+                  f"{pct(mild['strategies']['best_frame']['split']['test_fnir'], 1)} with splitting; split threshold "
+                  f"{mild['track_split_threshold']}.", ""]
+    return "\n".join(lines)
+
+
+def sec_neg_suppression(R):
+    n = R.get("neg_suppression")
+    if not n:
+        return ""
+    t = n["test"]
+    lines = ["## False-positive suppression (offline simulation)", "", n["protocol"], "",
+             f"Production threshold {num(n['match_threshold'])}; chosen NEG_SUPPRESS_THRESHOLD = **{n['chosen_threshold']}**.", "",
+             "| Split | False alerts per stream | Downgraded | True alerts per stream | Downgraded |", "|---|---|---|---|---|",
+             f"| test | {t['fp_alerts']:.0f} | {pct(t['benefit'], 1)}{ci(t['benefit_ci'], 1)} | {t['tp_alerts']:.0f} | "
+             f"{pct(t['cost'], 2)}{ci(t['cost_ci'], 2)} |", "",
+             f"Ship rule: {n['ship_rule']} (FNIR CI half-width {pct(n['deployed_fnir_ci_half_width'], 2)}). "
+             f"Result: **{'shipped' if n['ship'] else 'not shipped'}** (`ENABLE_NEG_SUPPRESSION`).", "",
+             "Interpretation: on LFW most false alerts are one-off look-alikes, so only the repeats (the same "
+             "stranger hitting the same case again) can be caught; in the field a regular at a railway station is "
+             "exactly such a repeat. The downgraded alerts are still shown to the officer, labelled as similar to a "
+             "rejected face. The numbers are small (about 20 false alerts per simulated stream), so the benefit has a "
+             "wide CI.", ""]
+    return "\n".join(lines)
+
+
 def sec_robustness(R):
     r = R["robustness"]
     if not r:
@@ -416,8 +616,9 @@ THREATS = """## Threats to validity
   IR, or compression artefacts of real video pipelines.
 - **Demographic labels are noisy** (classifier scores, not self-reported), the groups are unbalanced,
   and the Indian group, which is the deployment population, has very little data.
-- **No children and no large age gaps.** Missing-person cases often involve children and photos taken
-  years apart. Neither is covered yet (Week 3).
+- **Small age-gap data.** FG-NET has 82 subjects and scanned prints; CALFW has no per-image ages. The
+  shape of the age-gap curve is solid, the exact percentages are not. AgeDB/CACD would tighten them.
+- **Video results are synthetic.** Degraded LFW stills stand in for CCTV tracks (YouTube Faces needs a request).
 - **One reference photo per case** is assumed. Several reference photos per case would change the
   numbers (usually for the better).
 - **Small non-mated sets.** FPIR = 0.1% rests on a handful of errors; the bootstrap CIs show this.
@@ -426,7 +627,8 @@ THREATS = """## Threats to validity
 
 def build_report():
     names = ["embed_lfw", "verification_lfw", "openset_lfw", "operating_point", "calibration", "bias",
-             "robustness", "quality", "detection_widerface", "latency", "detsize_check", "label_noise"]
+             "robustness", "quality", "detection_widerface", "latency", "detsize_check", "label_noise", "age_gap",
+             "embed_fgnet", "embed_calfw", "multi_template", "age_mitigation", "video", "video_mild", "neg_suppression"]
     R = {n: _load(n) for n in names}
     meta = next((r["meta"] for r in R.values() if r), {})
     parts = [
@@ -440,7 +642,7 @@ def build_report():
         "CIs are 95% bootstrap intervals that resample identities. Scores are cosine similarities of L2-normalised "
         "embeddings; FNIR/FPIR follow the NIST FRVT 1:N definitions at rank 1.", "",
         sec_embed(R), sec_verification(R), sec_openset(R), sec_operating(R), sec_calibration(R), sec_bias(R),
-        sec_label_noise(R), sec_robustness(R), sec_quality(R), sec_detection(R), sec_latency(R), THREATS,
+        sec_label_noise(R), sec_age_gap(R), sec_multi_template(R), sec_age_mitigation(R), sec_video(R), sec_neg_suppression(R), sec_robustness(R), sec_quality(R), sec_detection(R), sec_latency(R), THREATS,
         "## Reproduce", "", "```bash",
         "pip install -r requirements.txt -r requirements-eval.txt",
         "python scripts/get_eval_data.py",
@@ -514,7 +716,7 @@ def build_model_card(R, meta):
         "- Surveillance, tracking or profiling of people who are not missing.",
         "- Automated decisions of any kind (arrest, detention, denial of services) without human review.",
         "- Identifying protesters, journalists, or members of any group; scanning crowds for watch lists.",
-        "- Any use on children or across large age gaps until those are evaluated (Week 3).",
+        "- Relying on a single childhood photo to find a teenager or adult years later (see Age and children).",
         "- Commercial use (the buffalo_l weights are licensed for non-commercial research).", "",
         "## Factors", "",
         "- **Relevant factors:** face size in pixels, blur, compression, lighting, occlusion (masks), pose, age, and "
@@ -536,12 +738,36 @@ def build_model_card(R, meta):
         "bias fallback. Split by identity into tune / test halves.",
         "- **LFW attributes** (Kumar et al.) for demographic groups (fallback for RFW).",
         "- **WIDER FACE val** (3,226 images, 39,708 faces) for crowd detection.",
-        "- **Not yet:** RFW (licence pending), CCTV footage, Indian-population data, children, age-gap data.", "",
+        "- **FG-NET** (1,002 photos, 82 subjects aged 0-69) and **CALFW** (6,000 cross-age pairs) for age gaps.",
+        "- **Not yet:** RFW, AgeDB-30, YouTube Faces (licence or request pending), real CCTV footage, Indian-population data.", "",
         "## Training data", "",
         "Not trained or fine-tuned by this project. The recognition model was trained by InsightFace on WebFace600K; "
         "its demographic composition is not documented in detail by the authors.", "",
         "## Quantitative analyses", "",
         headline(R), "",
+        "## Age and children", "",
+    ]
+    ag = R.get("age_gap")
+    if ag:
+        ch, ad = ag["fgnet_1to1"]["child_enrolment"], ag["fgnet_1to1"]["adult_enrolment"]
+        last = list(ch)[-1]
+        lines += [f"- {ag['headline']} (FG-NET, {ag['fgnet_n_images']} images of 82 subjects).",
+                  f"- **Child-enrolment caveat:** a reference photo taken before age 18 misses the person "
+                  f"{pct(ch[last]['fnmr'], 0)} of the time once the photo is {last} years old (adult photos: "
+                  f"{pct(ad[last]['fnmr'], 0)}). Very young children also produce more false matches with each other.",
+                  "- Mitigations in the app: several reference photos per case (multi-photo templates), guidance to add "
+                  "the most recent photo, and an age-gap warning with the measured miss rate on the case page and on "
+                  "alerts. A learned age-robust adapter was not attempted (no CACD).", ""]
+    lines += [
+        "## Feedback-loop governance", "",
+        "- Officer reviews feed field metrics on `/admin/model-health` (shown only with n >= 30, Wilson CIs).",
+        "- Confirmed faces become extra reference photos only on request and behind guards (owner/Admin, cap of 3 "
+        "per case, quality gate, similarity to the enrolled photos); every addition is audit-logged and removable.",
+        "- Rejected faces become negative exemplars that downgrade (never drop) repeat look-alike alerts.",
+        "- Calibration changes are proposals that an Admin must approve; the previous calibrator is kept for rollback. "
+        "Thresholds are never changed automatically.",
+        "- Field data is selection-biased (only alerts are reviewed); a 2% random QA sample of below-threshold faces "
+        "estimates misses. Feedback data is deleted after 90 days. See [FEEDBACK_LOOP.md](FEEDBACK_LOOP.md).", "",
         "## Ethical considerations", "",
     ]
     if b:
@@ -565,7 +791,8 @@ def build_model_card(R, meta):
         "## Caveats and recommendations", "",
         "- LFW is easier than real sightings; expect higher miss rates in deployment.",
         "- Re-run the operating-point experiment when the number of open cases changes by 10x.",
-        "- Obtain RFW and an Indian evaluation set before any field use; add child and age-gap evaluation (Week 3).",
+        "- Obtain RFW and an Indian evaluation set before any field use; evaluate on real CCTV video (YTF or own data "
+        "with consent) and on a larger child/age-gap set (AgeDB, CACD).",
         "- Prefer several reference photos per case when available.", "",
     ]
     path = os.path.join(ROOT, "docs", "MODEL_CARD.md")

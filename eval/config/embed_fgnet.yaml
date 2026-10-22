@@ -1,0 +1,5 @@
+# FG-NET aging database: build the embedding cache
+experiment: embed
+dataset: fgnet
+det_size: [640, 640]
+seed: 0

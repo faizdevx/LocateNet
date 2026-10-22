@@ -1,0 +1,31 @@
+{
+  "meta": {
+    "experiment": "embed",
+    "config": "eval/config/embed_fgnet.yaml",
+    "model": "buffalo_l",
+    "insightface_version": "2.1",
+    "onnxruntime_version": "1.31.0",
+    "faiss_version": "1.15.1",
+    "dataset_version": "FG-NET (Lanitis et al.), 1002 images / 82 subjects, mirror yanweifu.github.io/FG_NET_data",
+    "git_commit": "f13a1c7324e192f3e4fe30d2f0a818254e40dc87-dirty",
+    "timestamp": "2026-10-22T11:29:05+00:00",
+    "seed": 0,
+    "python": "3.12.11"
+  },
+  "cache": "eval/cache/fgnet_buffalo_l.npz",
+  "fte": {
+    "n_images": 1002,
+    "ok": 1002,
+    "low_quality": 0,
+    "no_face": 0,
+    "fte_rate": 0.0
+  },
+  "fte_single_pass": {
+    "n_images": 1002,
+    "ok": 514,
+    "low_quality": 136,
+    "no_face": 352,
+    "fte_rate": 0.487026
+  },
+  "detect_pad_retry": true
+}

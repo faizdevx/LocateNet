@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 
 from eval import metrics as M
-from eval.common import ROOT, git_commit, metadata, save_result
+from eval.common import ROOT, git_commit, load_result, metadata, save_result
 from eval.datasets import lfw
 from eval.protocols import openset
 
@@ -42,11 +42,20 @@ def run(cfg):
                      "false_alerts_per_day": uploads * faces * st["fpir"],
                      "false_alerts_per_day_ci": [uploads * faces * st["fpir_ci"][0], uploads * faces * st["fpir_ci"][1]]})
     by_target = {r["fpir_target"]: r for r in rows}
-    rec = {"MATCH_THRESHOLD": round(by_target[match_fpir]["threshold_tune"], 3),
-           "HIGH_CONF_THRESHOLD": round(by_target[high_fpir]["threshold_tune"], 3),
-           "match_fpir": match_fpir, "high_fpir": high_fpir}
     import config
     previous = {"MATCH_THRESHOLD": config.MATCH_THRESHOLD, "HIGH_CONF_THRESHOLD": config.HIGH_CONF_THRESHOLD}
+    # Stability rule: keep the deployed value when it lies inside the bootstrap CI of the re-measured
+    # tune threshold (re-splitting identities alone moves thresholds by about that much).
+    tune_ci = load_result("openset_lfw")["splits"]["tune"]["by_gallery_size"][str(gallery)]["fnir_at_fpir"]
+    measured = {"MATCH_THRESHOLD": round(by_target[match_fpir]["threshold_tune"], 3),
+                "HIGH_CONF_THRESHOLD": round(by_target[high_fpir]["threshold_tune"], 3)}
+    cis = {"MATCH_THRESHOLD": tune_ci[str(match_fpir)]["threshold_ci"], "HIGH_CONF_THRESHOLD": tune_ci[str(high_fpir)]["threshold_ci"]}
+    rec = {"match_fpir": match_fpir, "high_fpir": high_fpir, "measured": measured, "measured_ci": cis, "kept": {}}
+    for k in measured:
+        lo, hi = cis[k]
+        keep = lo is not None and lo <= previous[k] <= hi
+        rec[k] = previous[k] if keep else measured[k]
+        rec["kept"][k] = bool(keep)
     prev_stats = {k: fixed_threshold_stats(test, v, n_boot, seed) for k, v in previous.items()}
     result = {"meta": metadata(cfg, lfw.DATASET_VERSION), "gallery_size": gallery,
               "uploads_per_day": uploads, "faces_per_upload": faces, "table": rows,
@@ -55,7 +64,8 @@ def run(cfg):
               "n_tune_nonmated": int(tune_non.size),
               "top_tune_nonmated_scores": sorted(tune_non.tolist(), reverse=True)[:5]}
     save_result("operating_point", result)
-    write_doc(result)
+    if not os.environ.get("LOCATENET_EVAL_RESULTS"):  # regression runs must not rewrite the docs
+        write_doc(result)
     print(f"Recommended MATCH_THRESHOLD={rec['MATCH_THRESHOLD']} (FPIR {match_fpir:.1%}), "
           f"HIGH_CONF_THRESHOLD={rec['HIGH_CONF_THRESHOLD']} (FPIR {high_fpir:.1%})")
 
@@ -68,6 +78,9 @@ def write_doc(r):
     rec = r["recommended"]
     by = {row["fpir_target"]: row for row in r["table"]}
     m = by[rec["match_fpir"]]
+    if rec.get("kept", {}).get("MATCH_THRESHOLD"):
+        m = {**m, **{f"test_{k}": v for k, v in r["previous_test_stats"]["MATCH_THRESHOLD"].items()},
+             "false_alerts_per_day": r["uploads_per_day"] * r["faces_per_upload"] * r["previous_test_stats"]["MATCH_THRESHOLD"]["fpir"]}
     lines = [
         "# Operating point",
         "",
@@ -105,6 +118,9 @@ def write_doc(r):
         f"about {m['false_alerts_per_day']:.1f} false alerts/day at the assumed load.",
         f"- **HIGH_CONF_THRESHOLD = {rec['HIGH_CONF_THRESHOLD']}** (FPIR {_pct(rec['high_fpir'])} on tune), used only for the "
         "\"High Similarity\" label.",
+        *[f"- Stability rule: the re-measured {k} is {rec['measured'][k]} (tune 95% CI {rec['measured_ci'][k][0]:.3f}-"
+          f"{rec['measured_ci'][k][1]:.3f}); the deployed value {r['previous'][k]} lies inside that CI, so it is kept."
+          for k in ("MATCH_THRESHOLD", "HIGH_CONF_THRESHOLD") if rec.get("kept", {}).get(k)],
         "- Why FPIR 1%: every alert is reviewed by an officer, so a false alert costs a few minutes of review, while a "
         "missed match can cost a missing person. "
         f"On LFW the 0.5% point is almost as good (FNIR {_pct(by[0.005]['test_fnir'])} vs {_pct(m['test_fnir'])}, "
@@ -117,7 +133,7 @@ def write_doc(r):
         f"- The 0.1% threshold ({rec['HIGH_CONF_THRESHOLD']}) is set by the two highest non-mated scores among "
         f"{r['n_tune_nonmated']} tune searches (likely look-alikes or LFW label errors), so it is fragile. It only "
         "controls the \"High Similarity\" label, not whether an alert is raised.",
-        f"- The previous hand-picked MATCH_THRESHOLD ({r['previous']['MATCH_THRESHOLD']}) gives FNIR {_pct(prev['fnir'])} and "
+        f"- The deployed MATCH_THRESHOLD before this run ({r['previous']['MATCH_THRESHOLD']}) gives FNIR {_pct(prev['fnir'])} and "
         f"FPIR {_pct(prev['fpir'])} on the same test split.",
         "",
         "## Caveats",

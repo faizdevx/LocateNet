@@ -18,10 +18,33 @@ class FaceService:
         self.app.prepare(ctx_id=0, det_size=self.det_size, det_thresh=det_threshold)
         print(f"Face model loaded (Threshold: {det_threshold}, det_size: {self.det_size})")
 
-    def detect_faces(self, frame):
+    def detect_faces(self, frame, pad_retry=None):
+        """
+        Detect and embed faces. SCRFD misses faces that fill most of the frame (close-up portraits,
+        passport-style enrolment photos). When no face reaches DET_SCORE_MIN and DETECT_PAD_RETRY is
+        on, detection is retried once on the image centred in a 2x canvas, and boxes / landmarks are
+        mapped back to the original image. See eval/results/age_gap.json (FG-NET failure to enrol).
+        """
         if frame is None:
             return []
-        return self.app.get(frame)
+        faces = self.app.get(frame)
+        if pad_retry is None:
+            pad_retry = config.DETECT_PAD_RETRY
+        if not pad_retry or any(getattr(f, "det_score", 0.0) >= config.DET_SCORE_MIN for f in faces):
+            return faces
+        h, w = frame.shape[:2]
+        canvas = np.zeros((h * 2, w * 2) + frame.shape[2:], dtype=frame.dtype)
+        oy, ox = h // 2, w // 2
+        canvas[oy:oy + h, ox:ox + w] = frame
+        padded = self.app.get(canvas)
+        best = max((f.det_score for f in faces), default=0.0)
+        if not padded or max(f.det_score for f in padded) <= best:
+            return faces
+        for f in padded:
+            f.bbox = f.bbox - np.array([ox, oy, ox, oy], dtype=f.bbox.dtype)
+            if getattr(f, "kps", None) is not None:
+                f.kps = f.kps - np.array([ox, oy], dtype=f.kps.dtype)
+        return padded
 
     def get_embeddings(self, frame):
         """

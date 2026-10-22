@@ -22,6 +22,11 @@ EXPERIMENTS = {
     "latency": "eval.protocols.latency",
     "detsize_check": "eval.protocols.detsize_check",
     "label_noise": "eval.protocols.label_noise",
+    "age_gap": "eval.protocols.age_gap",
+    "multi_template": "eval.protocols.multi_template",
+    "age_mitigation": "eval.protocols.age_mitigation",
+    "video": "eval.protocols.video",
+    "neg_suppression": "eval.protocols.neg_suppression",
     "smoke": "eval.protocols.smoke",
 }
 
@@ -32,7 +37,14 @@ def main(argv=None):
     run = sub.add_parser("run", help="run one experiment from a YAML config")
     run.add_argument("config")
     sub.add_parser("report", help="build docs/EVALUATION.md from eval/results/*.json")
+    reg = sub.add_parser("regress", help="re-run the headline suite and compare with the baseline")
+    reg.add_argument("--smoke", action="store_true", help="stub-model smoke comparison (CI)")
+    reg.add_argument("--update-baseline", action="store_true", help="snapshot current results as the baseline")
     args = parser.parse_args(argv)
+
+    if args.cmd == "regress":
+        from eval.regress import main as regress_main
+        return regress_main(smoke=args.smoke, update_baseline=args.update_baseline)
 
     if args.cmd == "report":
         from eval.report import build_report

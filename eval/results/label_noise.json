@@ -7,52 +7,52 @@
     "onnxruntime_version": "1.31.0",
     "faiss_version": "1.15.1",
     "dataset_version": "LFW original (lfw.tgz, figshare 5976018, sha256 055f7d9c...); pairs.txt View 2",
-    "git_commit": "3fd679c2080e5743881dc126c56ee2fcfecb2403-dirty",
-    "timestamp": "2026-10-21T21:27:04+00:00",
+    "git_commit": "f13a1c7324e192f3e4fe30d2f0a818254e40dc87-dirty",
+    "timestamp": "2026-10-22T12:22:24+00:00",
     "seed": 0,
     "python": "3.12.11"
   },
   "protocol": "LFW contains the same person under two names, the same photo filed under two people, and\ngenuine look-alikes such as identical twins. These pairs sit at the very top of the non-mated\nscore distribution and decide the FPIR = 0.1% threshold. They are listed, not removed: removing\nthem after looking at test-split errors would be tuning on the test split.",
   "openset_top_nonmated_tune": [
     {
+      "probe_identity": "Eva_Amurri",
+      "matched_identity": "Emmy_Rossum",
+      "score": 0.961527
+    },
+    {
       "probe_identity": "Morgan_Hentzen",
       "matched_identity": "Claire_Hentzen",
-      "score": 0.734288
+      "score": 0.746
     },
     {
-      "probe_identity": "Tia_Mowry",
-      "matched_identity": "Tamara_Mowry",
-      "score": 0.633523
+      "probe_identity": "Hassan_Wirajuda",
+      "matched_identity": "Hasan_Wirayuda",
+      "score": 0.723189
     },
     {
-      "probe_identity": "Nora_Bendijo",
-      "matched_identity": "Flor_Montulo",
-      "score": 0.620926
+      "probe_identity": "Hassan_Wirajuda",
+      "matched_identity": "Hasan_Wirayuda",
+      "score": 0.702656
     },
     {
-      "probe_identity": "Joe_Gatti",
-      "matched_identity": "Arturo_Gatti",
-      "score": 0.412127
+      "probe_identity": "Cristina_Kirchner",
+      "matched_identity": "Cristina_Fernandez",
+      "score": 0.599178
     },
     {
-      "probe_identity": "Park_Jung_Sung",
-      "matched_identity": "Lee_Jun",
-      "score": 0.391508
+      "probe_identity": "Hu_Jintao",
+      "matched_identity": "Wen_Jiabao",
+      "score": 0.40347
     },
     {
-      "probe_identity": "Nora_Bendijo",
-      "matched_identity": "Flor_Montulo",
-      "score": 0.362346
+      "probe_identity": "Vaclav_Havel",
+      "matched_identity": "Denys_Arcand",
+      "score": 0.334931
     },
     {
-      "probe_identity": "Dennis_Hastert",
-      "matched_identity": "John_Taylor",
-      "score": 0.359178
-    },
-    {
-      "probe_identity": "Dennis_Hastert",
-      "matched_identity": "John_Taylor",
-      "score": 0.348789
+      "probe_identity": "Hu_Jintao",
+      "matched_identity": "Wen_Jiabao",
+      "score": 0.326774
     }
   ],
   "openset_top_nonmated_test": [
@@ -62,29 +62,29 @@
       "score": 0.631282
     },
     {
-      "probe_identity": "Talisa_Soto",
-      "matched_identity": "Talisa_Bratt",
-      "score": 0.613663
+      "probe_identity": "Odai_Hussein",
+      "matched_identity": "Uday_Hussein",
+      "score": 0.594043
     },
     {
-      "probe_identity": "Angela_Merkel",
-      "matched_identity": "Barbara_Walters",
+      "probe_identity": "Sylvester_Stallone",
+      "matched_identity": "Frank_Stallone",
+      "score": 0.406115
+    },
+    {
+      "probe_identity": "Sylvester_Stallone",
+      "matched_identity": "Frank_Stallone",
+      "score": 0.379384
+    },
+    {
+      "probe_identity": "Barbara_Walters",
+      "matched_identity": "Angela_Merkel",
       "score": 0.35775
     },
     {
-      "probe_identity": "Lord_Hutton",
-      "matched_identity": "Jim_Tressel",
-      "score": 0.355071
-    },
-    {
-      "probe_identity": "Lina_Krasnoroutskaya",
-      "matched_identity": "Amanda_Beard",
-      "score": 0.350314
-    },
-    {
-      "probe_identity": "Annie_Chaplin",
-      "matched_identity": "Geraldine_Chaplin",
-      "score": 0.336419
+      "probe_identity": "Thomas_Manger",
+      "matched_identity": "George_Papandreou",
+      "score": 0.346365
     },
     {
       "probe_identity": "John_F_Kennedy_Jr",
@@ -92,9 +92,9 @@
       "score": 0.334321
     },
     {
-      "probe_identity": "Mary_Katherine_Smart",
-      "matched_identity": "Elizabeth_Smart",
-      "score": 0.329641
+      "probe_identity": "Barbara_Walters",
+      "matched_identity": "Dolly_Parton",
+      "score": 0.33293
     }
   ],
   "impostor_top_pairs_test": [
@@ -124,11 +124,6 @@
       "score": 0.594043
     },
     {
-      "identity_a": "Pauline_Landers",
-      "identity_b": "Pauline_Phillips",
-      "score": 0.514492
-    },
-    {
       "identity_a": "Ashley_Olsen",
       "identity_b": "Mary-Kate_Olsen",
       "score": 0.499335
@@ -137,7 +132,12 @@
       "identity_a": "Makiya_Ali_Hassan",
       "identity_b": "Mariam_Ali_Hassan",
       "score": 0.436905
+    },
+    {
+      "identity_a": "Billy_Boyd",
+      "identity_b": "Tom_Tunney",
+      "score": 0.416819
     }
   ],
-  "n_impostor_pairs_test": 4117015
+  "n_impostor_pairs_test": 4122756
 }

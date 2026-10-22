@@ -7,8 +7,8 @@
     "onnxruntime_version": "1.31.0",
     "faiss_version": "1.15.1",
     "dataset_version": "LFW original (lfw.tgz, figshare 5976018, sha256 055f7d9c...); pairs.txt View 2",
-    "git_commit": "090fe129b55f7564e3bcbf7c37d9b81a871fd23d",
-    "timestamp": "2026-10-21T19:53:32+00:00",
+    "git_commit": "f13a1c7324e192f3e4fe30d2f0a818254e40dc87-dirty",
+    "timestamp": "2026-10-22T12:24:43+00:00",
     "seed": 0,
     "python": "3.12.11"
   },
@@ -18,11 +18,11 @@
   "table": [
     {
       "fpir_target": 0.001,
-      "threshold_tune": 0.633523,
-      "test_fnir": 0.331742,
+      "threshold_tune": 0.746,
+      "test_fnir": 0.787302,
       "test_fnir_ci": [
-        0.299291,
-        0.36792
+        0.757686,
+        0.813966
       ],
       "test_fpir": 0.0,
       "test_fpir_ci": [
@@ -37,125 +37,143 @@
     },
     {
       "fpir_target": 0.005,
-      "threshold_tune": 0.330883,
-      "test_fnir": 0.006563,
+      "threshold_tune": 0.322985,
+      "test_fnir": 0.004444,
       "test_fnir_ci": [
-        0.002635,
-        0.01087
+        0.00065,
+        0.008749
       ],
-      "test_fpir": 0.003601,
+      "test_fpir": 0.005842,
       "test_fpir_ci": [
-        0.001049,
-        0.006442
+        0.002389,
+        0.009539
       ],
-      "false_alerts_per_day": 2.880658,
+      "false_alerts_per_day": 4.673807,
       "false_alerts_per_day_ci": [
-        0.839014,
-        5.153681
+        1.91111,
+        7.631137
       ]
     },
     {
       "fpir_target": 0.01,
-      "threshold_tune": 0.312255,
-      "test_fnir": 0.005967,
+      "threshold_tune": 0.303668,
+      "test_fnir": 0.004444,
       "test_fnir_ci": [
-        0.002511,
-        0.009996
+        0.00065,
+        0.008749
       ],
-      "test_fpir": 0.009259,
+      "test_fpir": 0.016553,
       "test_fpir_ci": [
-        0.005102,
-        0.013544
+        0.009887,
+        0.023494
       ],
-      "false_alerts_per_day": 7.407407,
+      "false_alerts_per_day": 13.242454,
       "false_alerts_per_day_ci": [
-        4.08127,
-        10.834815
+        7.9092,
+        18.795056
       ]
     },
     {
       "fpir_target": 0.02,
-      "threshold_tune": 0.290258,
-      "test_fnir": 0.00537,
+      "threshold_tune": 0.287634,
+      "test_fnir": 0.00381,
       "test_fnir_ci": [
-        0.002291,
-        0.009015
+        0.0,
+        0.008077
       ],
-      "test_fpir": 0.028292,
+      "test_fpir": 0.028724,
       "test_fpir_ci": [
-        0.020576,
-        0.036908
+        0.020018,
+        0.037431
       ],
-      "false_alerts_per_day": 22.633745,
+      "false_alerts_per_day": 22.979552,
       "false_alerts_per_day_ci": [
-        16.460861,
-        29.52622
+        16.01465,
+        29.944961
       ]
     },
     {
       "fpir_target": 0.05,
-      "threshold_tune": 0.269963,
-      "test_fnir": 0.00537,
+      "threshold_tune": 0.266319,
+      "test_fnir": 0.00381,
       "test_fnir_ci": [
-        0.002291,
-        0.009015
+        0.0,
+        0.008077
       ],
-      "test_fpir": 0.062757,
+      "test_fpir": 0.06962,
       "test_fpir_ci": [
-        0.050222,
-        0.074897
+        0.054904,
+        0.086826
       ],
-      "false_alerts_per_day": 50.205761,
+      "false_alerts_per_day": 55.696203,
       "false_alerts_per_day_ci": [
-        40.17758,
-        59.917861
+        43.923448,
+        69.460746
       ]
     }
   ],
   "recommended": {
-    "MATCH_THRESHOLD": 0.312,
-    "HIGH_CONF_THRESHOLD": 0.634,
     "match_fpir": 0.01,
-    "high_fpir": 0.001
+    "high_fpir": 0.001,
+    "measured": {
+      "MATCH_THRESHOLD": 0.304,
+      "HIGH_CONF_THRESHOLD": 0.746
+    },
+    "measured_ci": {
+      "MATCH_THRESHOLD": [
+        0.292291,
+        0.322985
+      ],
+      "HIGH_CONF_THRESHOLD": [
+        0.334931,
+        0.961527
+      ]
+    },
+    "kept": {
+      "MATCH_THRESHOLD": true,
+      "HIGH_CONF_THRESHOLD": true
+    },
+    "MATCH_THRESHOLD": 0.312,
+    "HIGH_CONF_THRESHOLD": 0.634
   },
   "previous": {
-    "MATCH_THRESHOLD": 0.45,
-    "HIGH_CONF_THRESHOLD": 0.6
+    "MATCH_THRESHOLD": 0.312,
+    "HIGH_CONF_THRESHOLD": 0.634
   },
   "previous_test_stats": {
     "MATCH_THRESHOLD": {
-      "fnir": 0.019093,
+      "fnir": 0.004444,
       "fnir_ci": [
-        0.011458,
-        0.027612
+        0.00065,
+        0.008749
       ],
-      "fpir": 0.001029,
+      "fpir": 0.010711,
       "fpir_ci": [
-        0.0,
-        0.002557
+        0.005928,
+        0.016331
       ]
     },
     "HIGH_CONF_THRESHOLD": {
-      "fnir": 0.22136,
+      "fnir": 0.307937,
       "fnir_ci": [
-        0.192684,
-        0.251174
+        0.274718,
+        0.341221
       ],
-      "fpir": 0.001029,
+      "fpir": 0.0,
       "fpir_ci": [
         0.0,
-        0.002557
+        0.0
       ]
     }
   },
-  "n_test_mated": 1676,
-  "n_test_nonmated": 1944,
-  "n_tune_nonmated": 1953,
+  "n_test_mated": 1575,
+  "n_test_nonmated": 2054,
+  "n_tune_nonmated": 1933,
   "top_tune_nonmated_scores": [
-    0.734288,
-    0.633523,
-    0.620926,
-    0.412127,
-    0.391508
+    0.961527,
+    0.746,
+    0.723189,
+    0.702656,
+    0.599178
   ]
 }

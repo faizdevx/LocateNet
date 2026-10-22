@@ -1,0 +1,11 @@
+# Age-gap evaluation: FG-NET 1:1 by gap bucket, child vs adult enrolment, CALFW, FG-NET open-set
+experiment: age_gap
+impostors_per_genuine: 10
+min_genuine: 20
+heldout_frac: 0.25
+n_boot: 1000
+identity_aliases:
+  John_Gruden: Jon_Gruden
+  Stephen_Ebberharter: Stephan_Eberharter
+  Noer_Moeis: Noer_Muis
+seed: 0

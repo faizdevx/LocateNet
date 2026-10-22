@@ -7,17 +7,25 @@
     "onnxruntime_version": "1.31.0",
     "faiss_version": "1.15.1",
     "dataset_version": "LFW original (lfw.tgz, figshare 5976018, sha256 055f7d9c...); pairs.txt View 2",
-    "git_commit": "ba35f7d864d2b76c54cb13c6cf3e0eca7fc4a775-dirty",
-    "timestamp": "2026-10-21T19:38:15+00:00",
+    "git_commit": "f13a1c7324e192f3e4fe30d2f0a818254e40dc87-dirty",
+    "timestamp": "2026-10-22T11:29:36+00:00",
     "seed": 0,
     "python": "3.12.11"
   },
   "cache": "eval/cache/lfw_buffalo_l.npz",
   "fte": {
     "n_images": 13233,
+    "ok": 13232,
+    "low_quality": 1,
+    "no_face": 0,
+    "fte_rate": 7.6e-05
+  },
+  "fte_single_pass": {
+    "n_images": 13233,
     "ok": 13205,
     "low_quality": 10,
     "no_face": 18,
     "fte_rate": 0.002116
-  }
+  },
+  "detect_pad_retry": true
 }

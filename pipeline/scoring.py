@@ -36,13 +36,37 @@ def select_match(scores, ids, is_active=None):
     return -1, best_active
 
 
+def nearest_active(scores, ids, is_active=None):
+    """Rank-1 active case regardless of the threshold (used to route random QA samples), or -1."""
+    for score, case_id in zip(scores, ids):
+        case_id = int(case_id)
+        if case_id != -1 and (is_active is None or is_active(case_id)):
+            return case_id
+    return -1
+
+
 def match_fields(scores, ids, is_active=None):
     """Shared match output used by both the image and the video pipeline."""
     case_id, similarity = select_match(scores, ids, is_active)
     return {
         "id": case_id,
+        "candidate_id": nearest_active(scores, ids, is_active),
         "label": f"Person_{case_id}" if case_id != -1 else "Unknown",
         "similarity": similarity,
         "percentage": round(similarity * 100, 2),
         "category": categorize(similarity) if case_id != -1 else CATEGORY_NONE,
     }
+
+
+def rank_cases(embedding, search_svc, matcher=None, top_k=None):
+    """
+    Case-level (scores, case_ids). FAISS stores one vector per reference photo; with a
+    TemplateMatcher the per-photo hits (top_k * MAX_PHOTOS_PER_CASE of them) are grouped by case and
+    re-scored with the configured strategy. Without a matcher the FAISS ids are used as they are
+    (evaluation protocols that enrol one vector per identity).
+    """
+    top_k = int(top_k or config.TOP_K)
+    if matcher is None:
+        return search_svc.search_face(embedding, top_k=top_k)
+    hits = search_svc.search_face(embedding, top_k=matcher.search_k(top_k))
+    return matcher.rank(embedding, hits, top_k=top_k)

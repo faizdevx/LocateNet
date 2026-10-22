@@ -1,0 +1,671 @@
+{
+  "meta": {
+    "experiment": "multi_template",
+    "config": "eval/config/multi_template.yaml",
+    "model": "buffalo_l",
+    "insightface_version": "2.1",
+    "onnxruntime_version": "1.31.0",
+    "faiss_version": "1.15.1",
+    "dataset_version": "LFW (Week 2 protocol) + FG-NET (Lanitis et al.), 1002 images / 82 subjects, mirror yanweifu.github.io/FG_NET_data",
+    "git_commit": "8583de852bc521202ab0b026a3f4682e4ac617bf-dirty",
+    "timestamp": "2026-10-22T12:35:54+00:00",
+    "seed": 0,
+    "python": "3.12.11"
+  },
+  "protocol": "LFW: identities with >= 6 enrolled images, split into tune / test by identity (the Week 2 open-set\npartition). In each split 70% are gallery cases and 30% are held out as non-mated; single-image\nidentities pad the gallery (distractors, 1 photo each) or act as extra non-mated probes. For each\ngallery identity the images are shuffled once (seeded): the first k (k = 1, 2, 3, 5, nested) are\nenrolled and images 6..15 are the probes, so every k is scored on the same probes.\nFG-NET: subjects are split tune / test; each subject's latest third of photos (by age) are the probes,\nthe earlier photos are the enrolment pool, from which k photos are picked either at random or\nage-diverse (spread evenly over the pool's ages, always including the most recent). 30% of the\nsubjects are held out as non-mated; LFW single-image identities pad the gallery.\n\nSearch uses the production path: SearchService (one FAISS vector per photo) + TemplateMatcher with\ntop_k * MAX_PHOTOS_PER_CASE neighbours, grouped by case and re-scored. Because `max` over more\nphotos also raises impostor scores, each (strategy, k) gets its OWN threshold at FPIR = 1% chosen\non the tune split, applied unchanged to the test split. FPIR at the deployed MATCH_THRESHOLD is\nreported too, to show how much each strategy inflates false alerts at one global threshold.\nPhoto quality for quality_weighted_mean = detector score x face-size factor (services/photo_quality).",
+  "ks": [
+    1,
+    2,
+    3,
+    5
+  ],
+  "strategies": [
+    "max",
+    "mean_template",
+    "quality_weighted_mean",
+    "top2_mean"
+  ],
+  "production_threshold": 0.312,
+  "lfw": {
+    "1": {
+      "max": {
+        "threshold_fpir1_tune": 0.284462,
+        "test_fnir": 0.0,
+        "test_fnir_ci": [
+          0.0,
+          0.0
+        ],
+        "test_fpir": 0.028121,
+        "test_rank1": 1.0,
+        "fnir_at_production_threshold": 0.0,
+        "fpir_at_production_threshold": 0.005624
+      },
+      "mean_template": {
+        "threshold_fpir1_tune": 0.284462,
+        "test_fnir": 0.0,
+        "test_fnir_ci": [
+          0.0,
+          0.0
+        ],
+        "test_fpir": 0.028121,
+        "test_rank1": 1.0,
+        "fnir_at_production_threshold": 0.0,
+        "fpir_at_production_threshold": 0.005624
+      },
+      "quality_weighted_mean": {
+        "threshold_fpir1_tune": 0.284462,
+        "test_fnir": 0.0,
+        "test_fnir_ci": [
+          0.0,
+          0.0
+        ],
+        "test_fpir": 0.028121,
+        "test_rank1": 1.0,
+        "fnir_at_production_threshold": 0.0,
+        "fpir_at_production_threshold": 0.005624
+      },
+      "top2_mean": {
+        "threshold_fpir1_tune": 0.284462,
+        "test_fnir": 0.0,
+        "test_fnir_ci": [
+          0.0,
+          0.0
+        ],
+        "test_fpir": 0.028121,
+        "test_rank1": 1.0,
+        "fnir_at_production_threshold": 0.0,
+        "fpir_at_production_threshold": 0.005624
+      }
+    },
+    "2": {
+      "max": {
+        "threshold_fpir1_tune": 0.28921,
+        "test_fnir": 0.0,
+        "test_fnir_ci": [
+          0.0,
+          0.0
+        ],
+        "test_fpir": 0.019123,
+        "test_rank1": 1.0,
+        "fnir_at_production_threshold": 0.0,
+        "fpir_at_production_threshold": 0.005624
+      },
+      "mean_template": {
+        "threshold_fpir1_tune": 0.284462,
+        "test_fnir": 0.0,
+        "test_fnir_ci": [
+          0.0,
+          0.0
+        ],
+        "test_fpir": 0.033746,
+        "test_rank1": 1.0,
+        "fnir_at_production_threshold": 0.0,
+        "fpir_at_production_threshold": 0.005624
+      },
+      "quality_weighted_mean": {
+        "threshold_fpir1_tune": 0.284462,
+        "test_fnir": 0.0,
+        "test_fnir_ci": [
+          0.0,
+          0.0
+        ],
+        "test_fpir": 0.034871,
+        "test_rank1": 1.0,
+        "fnir_at_production_threshold": 0.0,
+        "fpir_at_production_threshold": 0.005624
+      },
+      "top2_mean": {
+        "threshold_fpir1_tune": 0.283731,
+        "test_fnir": 0.0,
+        "test_fnir_ci": [
+          0.0,
+          0.0
+        ],
+        "test_fpir": 0.026997,
+        "test_rank1": 1.0,
+        "fnir_at_production_threshold": 0.0,
+        "fpir_at_production_threshold": 0.005624
+      }
+    },
+    "3": {
+      "max": {
+        "threshold_fpir1_tune": 0.293955,
+        "test_fnir": 0.0,
+        "test_fnir_ci": [
+          0.0,
+          0.0
+        ],
+        "test_fpir": 0.016873,
+        "test_rank1": 1.0,
+        "fnir_at_production_threshold": 0.0,
+        "fpir_at_production_threshold": 0.007874
+      },
+      "mean_template": {
+        "threshold_fpir1_tune": 0.288231,
+        "test_fnir": 0.0,
+        "test_fnir_ci": [
+          0.0,
+          0.0
+        ],
+        "test_fpir": 0.024747,
+        "test_rank1": 1.0,
+        "fnir_at_production_threshold": 0.0,
+        "fpir_at_production_threshold": 0.006749
+      },
+      "quality_weighted_mean": {
+        "threshold_fpir1_tune": 0.287298,
+        "test_fnir": 0.0,
+        "test_fnir_ci": [
+          0.0,
+          0.0
+        ],
+        "test_fpir": 0.028121,
+        "test_rank1": 1.0,
+        "fnir_at_production_threshold": 0.0,
+        "fpir_at_production_threshold": 0.006749
+      },
+      "top2_mean": {
+        "threshold_fpir1_tune": 0.284462,
+        "test_fnir": 0.0,
+        "test_fnir_ci": [
+          0.0,
+          0.0
+        ],
+        "test_fpir": 0.028121,
+        "test_rank1": 1.0,
+        "fnir_at_production_threshold": 0.0,
+        "fpir_at_production_threshold": 0.005624
+      }
+    },
+    "5": {
+      "max": {
+        "threshold_fpir1_tune": 0.296835,
+        "test_fnir": 0.0,
+        "test_fnir_ci": [
+          0.0,
+          0.0
+        ],
+        "test_fpir": 0.014623,
+        "test_rank1": 1.0,
+        "fnir_at_production_threshold": 0.0,
+        "fpir_at_production_threshold": 0.007874
+      },
+      "mean_template": {
+        "threshold_fpir1_tune": 0.284462,
+        "test_fnir": 0.0,
+        "test_fnir_ci": [
+          0.0,
+          0.0
+        ],
+        "test_fpir": 0.031496,
+        "test_rank1": 1.0,
+        "fnir_at_production_threshold": 0.0,
+        "fpir_at_production_threshold": 0.005624
+      },
+      "quality_weighted_mean": {
+        "threshold_fpir1_tune": 0.284462,
+        "test_fnir": 0.0,
+        "test_fnir_ci": [
+          0.0,
+          0.0
+        ],
+        "test_fpir": 0.031496,
+        "test_rank1": 1.0,
+        "fnir_at_production_threshold": 0.0,
+        "fpir_at_production_threshold": 0.005624
+      },
+      "top2_mean": {
+        "threshold_fpir1_tune": 0.284993,
+        "test_fnir": 0.0,
+        "test_fnir_ci": [
+          0.0,
+          0.0
+        ],
+        "test_fpir": 0.028121,
+        "test_rank1": 1.0,
+        "fnir_at_production_threshold": 0.0,
+        "fpir_at_production_threshold": 0.005624
+      }
+    }
+  },
+  "lfw_sizes": {
+    "tune": {
+      "n_gallery_cases": 113,
+      "n_distractors": 507,
+      "n_mated_probes": 628,
+      "n_nonmated_probes": 948
+    },
+    "test": {
+      "n_gallery_cases": 106,
+      "n_distractors": 507,
+      "n_mated_probes": 516,
+      "n_nonmated_probes": 889
+    }
+  },
+  "fgnet": {
+    "random": {
+      "1": {
+        "max": {
+          "threshold_fpir1_tune": 0.322103,
+          "test_fnir": 0.22807,
+          "test_fnir_ci": [
+            0.121576,
+            0.367035
+          ],
+          "test_fpir": 0.01,
+          "test_rank1": 0.947368,
+          "fnir_at_production_threshold": 0.201754,
+          "fpir_at_production_threshold": 0.011818
+        },
+        "mean_template": {
+          "threshold_fpir1_tune": 0.322103,
+          "test_fnir": 0.22807,
+          "test_fnir_ci": [
+            0.121576,
+            0.367035
+          ],
+          "test_fpir": 0.01,
+          "test_rank1": 0.947368,
+          "fnir_at_production_threshold": 0.201754,
+          "fpir_at_production_threshold": 0.011818
+        },
+        "quality_weighted_mean": {
+          "threshold_fpir1_tune": 0.322103,
+          "test_fnir": 0.22807,
+          "test_fnir_ci": [
+            0.121576,
+            0.367035
+          ],
+          "test_fpir": 0.01,
+          "test_rank1": 0.947368,
+          "fnir_at_production_threshold": 0.201754,
+          "fpir_at_production_threshold": 0.011818
+        },
+        "top2_mean": {
+          "threshold_fpir1_tune": 0.322103,
+          "test_fnir": 0.22807,
+          "test_fnir_ci": [
+            0.121576,
+            0.367035
+          ],
+          "test_fpir": 0.01,
+          "test_rank1": 0.947368,
+          "fnir_at_production_threshold": 0.201754,
+          "fpir_at_production_threshold": 0.011818
+        }
+      },
+      "2": {
+        "max": {
+          "threshold_fpir1_tune": 0.334931,
+          "test_fnir": 0.140351,
+          "test_fnir_ci": [
+            0.05991,
+            0.238551
+          ],
+          "test_fpir": 0.006818,
+          "test_rank1": 0.982456,
+          "fnir_at_production_threshold": 0.122807,
+          "fpir_at_production_threshold": 0.013636
+        },
+        "mean_template": {
+          "threshold_fpir1_tune": 0.32357,
+          "test_fnir": 0.131579,
+          "test_fnir_ci": [
+            0.052632,
+            0.225705
+          ],
+          "test_fpir": 0.011818,
+          "test_rank1": 0.982456,
+          "fnir_at_production_threshold": 0.114035,
+          "fpir_at_production_threshold": 0.014091
+        },
+        "quality_weighted_mean": {
+          "threshold_fpir1_tune": 0.322103,
+          "test_fnir": 0.131579,
+          "test_fnir_ci": [
+            0.052632,
+            0.225705
+          ],
+          "test_fpir": 0.012273,
+          "test_rank1": 0.982456,
+          "fnir_at_production_threshold": 0.114035,
+          "fpir_at_production_threshold": 0.014545
+        },
+        "top2_mean": {
+          "threshold_fpir1_tune": 0.312914,
+          "test_fnir": 0.166667,
+          "test_fnir_ci": [
+            0.06657,
+            0.272563
+          ],
+          "test_fpir": 0.008636,
+          "test_rank1": 0.964912,
+          "fnir_at_production_threshold": 0.166667,
+          "fpir_at_production_threshold": 0.008636
+        }
+      },
+      "3": {
+        "max": {
+          "threshold_fpir1_tune": 0.325902,
+          "test_fnir": 0.087719,
+          "test_fnir_ci": [
+            0.017937,
+            0.181987
+          ],
+          "test_fpir": 0.013182,
+          "test_rank1": 0.964912,
+          "fnir_at_production_threshold": 0.061404,
+          "fpir_at_production_threshold": 0.018182
+        },
+        "mean_template": {
+          "threshold_fpir1_tune": 0.334931,
+          "test_fnir": 0.096491,
+          "test_fnir_ci": [
+            0.024577,
+            0.192493
+          ],
+          "test_fpir": 0.007727,
+          "test_rank1": 0.973684,
+          "fnir_at_production_threshold": 0.078947,
+          "fpir_at_production_threshold": 0.015909
+        },
+        "quality_weighted_mean": {
+          "threshold_fpir1_tune": 0.334419,
+          "test_fnir": 0.096491,
+          "test_fnir_ci": [
+            0.016317,
+            0.200963
+          ],
+          "test_fpir": 0.007727,
+          "test_rank1": 0.973684,
+          "fnir_at_production_threshold": 0.087719,
+          "fpir_at_production_threshold": 0.015909
+        },
+        "top2_mean": {
+          "threshold_fpir1_tune": 0.316837,
+          "test_fnir": 0.122807,
+          "test_fnir_ci": [
+            0.044261,
+            0.225423
+          ],
+          "test_fpir": 0.008636,
+          "test_rank1": 0.964912,
+          "fnir_at_production_threshold": 0.114035,
+          "fpir_at_production_threshold": 0.011364
+        }
+      },
+      "5": {
+        "max": {
+          "threshold_fpir1_tune": 0.356242,
+          "test_fnir": 0.035088,
+          "test_fnir_ci": [
+            0.0,
+            0.089747
+          ],
+          "test_fpir": 0.006818,
+          "test_rank1": 0.991228,
+          "fnir_at_production_threshold": 0.017544,
+          "fpir_at_production_threshold": 0.020455
+        },
+        "mean_template": {
+          "threshold_fpir1_tune": 0.353057,
+          "test_fnir": 0.052632,
+          "test_fnir_ci": [
+            0.0,
+            0.113208
+          ],
+          "test_fpir": 0.004091,
+          "test_rank1": 0.991228,
+          "fnir_at_production_threshold": 0.035088,
+          "fpir_at_production_threshold": 0.016364
+        },
+        "quality_weighted_mean": {
+          "threshold_fpir1_tune": 0.353057,
+          "test_fnir": 0.052632,
+          "test_fnir_ci": [
+            0.0,
+            0.113208
+          ],
+          "test_fpir": 0.004091,
+          "test_rank1": 0.991228,
+          "fnir_at_production_threshold": 0.035088,
+          "fpir_at_production_threshold": 0.016818
+        },
+        "top2_mean": {
+          "threshold_fpir1_tune": 0.331281,
+          "test_fnir": 0.052632,
+          "test_fnir_ci": [
+            0.0,
+            0.113208
+          ],
+          "test_fpir": 0.006364,
+          "test_rank1": 0.991228,
+          "fnir_at_production_threshold": 0.026316,
+          "fpir_at_production_threshold": 0.014091
+        }
+      }
+    },
+    "age_diverse": {
+      "1": {
+        "max": {
+          "threshold_fpir1_tune": 0.312914,
+          "test_fnir": 0.070175,
+          "test_fnir_ci": [
+            0.0,
+            0.149778
+          ],
+          "test_fpir": 0.009545,
+          "test_rank1": 0.964912,
+          "fnir_at_production_threshold": 0.070175,
+          "fpir_at_production_threshold": 0.009545
+        },
+        "mean_template": {
+          "threshold_fpir1_tune": 0.312914,
+          "test_fnir": 0.070175,
+          "test_fnir_ci": [
+            0.0,
+            0.149778
+          ],
+          "test_fpir": 0.009545,
+          "test_rank1": 0.964912,
+          "fnir_at_production_threshold": 0.070175,
+          "fpir_at_production_threshold": 0.009545
+        },
+        "quality_weighted_mean": {
+          "threshold_fpir1_tune": 0.312914,
+          "test_fnir": 0.070175,
+          "test_fnir_ci": [
+            0.0,
+            0.149778
+          ],
+          "test_fpir": 0.009545,
+          "test_rank1": 0.964912,
+          "fnir_at_production_threshold": 0.070175,
+          "fpir_at_production_threshold": 0.009545
+        },
+        "top2_mean": {
+          "threshold_fpir1_tune": 0.312914,
+          "test_fnir": 0.070175,
+          "test_fnir_ci": [
+            0.0,
+            0.149778
+          ],
+          "test_fpir": 0.009545,
+          "test_rank1": 0.964912,
+          "fnir_at_production_threshold": 0.070175,
+          "fpir_at_production_threshold": 0.009545
+        }
+      },
+      "2": {
+        "max": {
+          "threshold_fpir1_tune": 0.321599,
+          "test_fnir": 0.04386,
+          "test_fnir_ci": [
+            0.0,
+            0.105922
+          ],
+          "test_fpir": 0.012273,
+          "test_rank1": 0.991228,
+          "fnir_at_production_threshold": 0.04386,
+          "fpir_at_production_threshold": 0.014545
+        },
+        "mean_template": {
+          "threshold_fpir1_tune": 0.312914,
+          "test_fnir": 0.070175,
+          "test_fnir_ci": [
+            0.019794,
+            0.138059
+          ],
+          "test_fpir": 0.011364,
+          "test_rank1": 1.0,
+          "fnir_at_production_threshold": 0.070175,
+          "fpir_at_production_threshold": 0.011364
+        },
+        "quality_weighted_mean": {
+          "threshold_fpir1_tune": 0.312914,
+          "test_fnir": 0.070175,
+          "test_fnir_ci": [
+            0.02515,
+            0.126795
+          ],
+          "test_fpir": 0.011364,
+          "test_rank1": 1.0,
+          "fnir_at_production_threshold": 0.070175,
+          "fpir_at_production_threshold": 0.011364
+        },
+        "top2_mean": {
+          "threshold_fpir1_tune": 0.304624,
+          "test_fnir": 0.22807,
+          "test_fnir_ci": [
+            0.09914,
+            0.379354
+          ],
+          "test_fpir": 0.010455,
+          "test_rank1": 0.991228,
+          "fnir_at_production_threshold": 0.254386,
+          "fpir_at_production_threshold": 0.006364
+        }
+      },
+      "3": {
+        "max": {
+          "threshold_fpir1_tune": 0.326572,
+          "test_fnir": 0.035088,
+          "test_fnir_ci": [
+            0.0,
+            0.096331
+          ],
+          "test_fpir": 0.012273,
+          "test_rank1": 1.0,
+          "fnir_at_production_threshold": 0.035088,
+          "fpir_at_production_threshold": 0.016364
+        },
+        "mean_template": {
+          "threshold_fpir1_tune": 0.334895,
+          "test_fnir": 0.04386,
+          "test_fnir_ci": [
+            0.0,
+            0.103112
+          ],
+          "test_fpir": 0.006364,
+          "test_rank1": 1.0,
+          "fnir_at_production_threshold": 0.026316,
+          "fpir_at_production_threshold": 0.011818
+        },
+        "quality_weighted_mean": {
+          "threshold_fpir1_tune": 0.333661,
+          "test_fnir": 0.035088,
+          "test_fnir_ci": [
+            0.0,
+            0.079222
+          ],
+          "test_fpir": 0.006818,
+          "test_rank1": 1.0,
+          "fnir_at_production_threshold": 0.026316,
+          "fpir_at_production_threshold": 0.011818
+        },
+        "top2_mean": {
+          "threshold_fpir1_tune": 0.316837,
+          "test_fnir": 0.04386,
+          "test_fnir_ci": [
+            0.0,
+            0.117579
+          ],
+          "test_fpir": 0.009091,
+          "test_rank1": 1.0,
+          "fnir_at_production_threshold": 0.04386,
+          "fpir_at_production_threshold": 0.01
+        }
+      },
+      "5": {
+        "max": {
+          "threshold_fpir1_tune": 0.356721,
+          "test_fnir": 0.008772,
+          "test_fnir_ci": [
+            0.0,
+            0.029059
+          ],
+          "test_fpir": 0.006818,
+          "test_rank1": 1.0,
+          "fnir_at_production_threshold": 0.008772,
+          "fpir_at_production_threshold": 0.018636
+        },
+        "mean_template": {
+          "threshold_fpir1_tune": 0.353057,
+          "test_fnir": 0.035088,
+          "test_fnir_ci": [
+            0.008618,
+            0.06928
+          ],
+          "test_fpir": 0.005,
+          "test_rank1": 1.0,
+          "fnir_at_production_threshold": 0.017544,
+          "fpir_at_production_threshold": 0.014545
+        },
+        "quality_weighted_mean": {
+          "threshold_fpir1_tune": 0.353057,
+          "test_fnir": 0.026316,
+          "test_fnir_ci": [
+            0.0,
+            0.059085
+          ],
+          "test_fpir": 0.005,
+          "test_rank1": 1.0,
+          "fnir_at_production_threshold": 0.017544,
+          "fpir_at_production_threshold": 0.015
+        },
+        "top2_mean": {
+          "threshold_fpir1_tune": 0.329635,
+          "test_fnir": 0.017544,
+          "test_fnir_ci": [
+            0.0,
+            0.045455
+          ],
+          "test_fpir": 0.008636,
+          "test_rank1": 1.0,
+          "fnir_at_production_threshold": 0.017544,
+          "fpir_at_production_threshold": 0.013636
+        }
+      }
+    }
+  },
+  "fgnet_sizes": {
+    "tune": {
+      "n_gallery_subjects": 29,
+      "n_mated_probes": 104,
+      "n_nonmated_probes": 2078
+    },
+    "test": {
+      "n_gallery_subjects": 29,
+      "n_mated_probes": 114,
+      "n_nonmated_probes": 2200
+    }
+  },
+  "mean_fnir_k_ge_2": {
+    "max": 0.01462,
+    "mean_template": 0.024854,
+    "quality_weighted_mean": 0.02193,
+    "top2_mean": 0.048246
+  },
+  "chosen_strategy": "max",
+  "plot": "eval/plots/multi_template.png"
+}

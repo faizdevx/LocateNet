@@ -68,8 +68,17 @@
                                         {% endif %}
                                     </div>
                                     <div class="small mb-3">
+                                        {% if face.qa_sample %}<div class="badge bg-info text-dark mb-1">Random QA sample – not a match alert</div>
+                                        <div><strong>Nearest case:</strong> {{ face.candidate_person_name }} (is this the same person?)</div>{% endif %}
                                         <div><strong>Status:</strong> {{ face.category }}</div>
                                         <div class="text-muted">{{ scores.score_line(face, face.percentage) }}</div>
+                                        {% if face.n_frames %}
+                                        <div class="small mt-1"><strong>Video track:</strong> {{ '%.1f'|format(face.track_start_s or 0) }} s - {{ '%.1f'|format(face.track_end_s or 0) }} s, {{ face.n_frames }} frames used</div>
+                                        <div class="d-flex gap-1 mt-1">
+                                            {% for c in face.extra_crops %}<img src="/{{ c }}" alt="Track frame" style="width:56px;height:56px;object-fit:cover;border-radius:4px;">{% endfor %}
+                                        </div>
+                                        {% endif %}
+                                        {% if face.age_warning %}<div class="alert alert-warning py-1 px-2 mt-1 mb-0 small">{{ face.age_warning }}</div>{% endif %}
                                         {% if face.match_id and face.match_id != -1 %}
                                         <div><strong>Target:</strong> {{ face.matched_person_name or ('Person ' ~ face.match_id) }}</div>
                                         {% endif %}
@@ -93,6 +102,12 @@
                                         {% endif %}
                                         <form method="post" action="{{ url_for('review_sighting_face', sighting_id=sighting.id, face_id=face.id) }}">
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            {% if face.match_id and face.match_id != -1 %}
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input" type="checkbox" name="add_as_template" value="1" id="tpl{{ face.id }}">
+                                                <label class="form-check-label" for="tpl{{ face.id }}">With Confirm: add this face as a reference photo</label>
+                                            </div>
+                                            {% endif %}
                                             <div class="d-grid gap-2">
                                                 <button type="submit" name="decision" value="confirm_match" class="btn btn-sm btn-success">Confirm Match</button>
                                                 <button type="submit" name="decision" value="false_positive" class="btn btn-sm btn-danger">False Positive</button>

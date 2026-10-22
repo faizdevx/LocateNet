@@ -1,0 +1,143 @@
+{
+  "meta": {
+    "experiment": "neg_suppression",
+    "config": "eval/config/neg_suppression.yaml",
+    "model": "buffalo_l",
+    "insightface_version": "2.1",
+    "onnxruntime_version": "1.31.0",
+    "faiss_version": "1.15.1",
+    "dataset_version": "LFW original (lfw.tgz, figshare 5976018, sha256 055f7d9c...); pairs.txt View 2",
+    "git_commit": "44579d09caaf7465adb553a4497561dd39a4a616-dirty",
+    "timestamp": "2026-10-22T14:34:44+00:00",
+    "seed": 0,
+    "python": "3.12.11"
+  },
+  "protocol": "Setup: the Week 2 LFW open-set protocol at gallery 1000, searched at the production\nMATCH_THRESHOLD. Every probe of the split is replayed as a stream in a random order (20 seeded\norders, results averaged). Each alert is \"reviewed\" with the ground truth: a non-mated alert is a\nfalse positive and its embedding becomes a negative exemplar of the case it hit (what an officer's\nfalse_positive click does). Before raising each new alert we apply\nservices.feedback.suppression_decision with that case's exemplars so far.\nBenefit: share of false-positive alerts that are downgraded (repeat look-alikes).\nCost: share of true alerts (mated, correct case) that are downgraded.\nNEG_SUPPRESS_THRESHOLD is chosen on the tune split as the strictest value with the largest benefit at zero\ncost; the test split reports both with Wilson 95% CIs. Ship only if the test cost is not larger\nthan the CI half-width of the deployed FNIR (a downgraded true alert still reaches the officer,\nso this is a conservative bound).",
+  "match_threshold": 0.312,
+  "tune_grid": {
+    "0.3": {
+      "fp_alerts": 13.0,
+      "fp_downgraded": 2.0,
+      "tp_alerts": 1812.0,
+      "tp_downgraded": 0.0,
+      "benefit": 0.153846,
+      "cost": 0.0
+    },
+    "0.35": {
+      "fp_alerts": 13.0,
+      "fp_downgraded": 2.0,
+      "tp_alerts": 1812.0,
+      "tp_downgraded": 0.0,
+      "benefit": 0.153846,
+      "cost": 0.0
+    },
+    "0.4": {
+      "fp_alerts": 13.0,
+      "fp_downgraded": 2.0,
+      "tp_alerts": 1812.0,
+      "tp_downgraded": 0.0,
+      "benefit": 0.153846,
+      "cost": 0.0
+    },
+    "0.45": {
+      "fp_alerts": 13.0,
+      "fp_downgraded": 2.0,
+      "tp_alerts": 1812.0,
+      "tp_downgraded": 0.0,
+      "benefit": 0.153846,
+      "cost": 0.0
+    },
+    "0.5": {
+      "fp_alerts": 13.0,
+      "fp_downgraded": 2.0,
+      "tp_alerts": 1812.0,
+      "tp_downgraded": 0.0,
+      "benefit": 0.153846,
+      "cost": 0.0
+    },
+    "0.55": {
+      "fp_alerts": 13.0,
+      "fp_downgraded": 2.0,
+      "tp_alerts": 1812.0,
+      "tp_downgraded": 0.0,
+      "benefit": 0.153846,
+      "cost": 0.0
+    },
+    "0.6": {
+      "fp_alerts": 13.0,
+      "fp_downgraded": 2.0,
+      "tp_alerts": 1812.0,
+      "tp_downgraded": 0.0,
+      "benefit": 0.153846,
+      "cost": 0.0
+    },
+    "0.65": {
+      "fp_alerts": 13.0,
+      "fp_downgraded": 1.65,
+      "tp_alerts": 1812.0,
+      "tp_downgraded": 0.0,
+      "benefit": 0.126923,
+      "cost": 0.0
+    },
+    "0.7": {
+      "fp_alerts": 13.0,
+      "fp_downgraded": 1.0,
+      "tp_alerts": 1812.0,
+      "tp_downgraded": 0.0,
+      "benefit": 0.076923,
+      "cost": 0.0
+    },
+    "0.75": {
+      "fp_alerts": 13.0,
+      "fp_downgraded": 0.0,
+      "tp_alerts": 1812.0,
+      "tp_downgraded": 0.0,
+      "benefit": 0.0,
+      "cost": 0.0
+    },
+    "0.8": {
+      "fp_alerts": 13.0,
+      "fp_downgraded": 0.0,
+      "tp_alerts": 1812.0,
+      "tp_downgraded": 0.0,
+      "benefit": 0.0,
+      "cost": 0.0
+    },
+    "0.85": {
+      "fp_alerts": 13.0,
+      "fp_downgraded": 0.0,
+      "tp_alerts": 1812.0,
+      "tp_downgraded": 0.0,
+      "benefit": 0.0,
+      "cost": 0.0
+    },
+    "0.9": {
+      "fp_alerts": 13.0,
+      "fp_downgraded": 0.0,
+      "tp_alerts": 1812.0,
+      "tp_downgraded": 0.0,
+      "benefit": 0.0,
+      "cost": 0.0
+    }
+  },
+  "chosen_threshold": 0.6,
+  "test": {
+    "fp_alerts": 22.0,
+    "fp_downgraded": 2.5,
+    "tp_alerts": 1568.0,
+    "tp_downgraded": 0.0,
+    "benefit": 0.113636,
+    "cost": 0.0,
+    "benefit_ci": [
+      0.025295,
+      0.278149
+    ],
+    "cost_ci": [
+      0.0,
+      0.002444
+    ]
+  },
+  "deployed_fnir_ci_half_width": 0.00405,
+  "ship": true,
+  "ship_rule": "test cost (true alerts downgraded) <= CI half-width of deployed FNIR, and benefit > 0"
+}

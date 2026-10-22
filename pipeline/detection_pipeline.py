@@ -5,15 +5,17 @@ import uuid
 import cv2
 
 import config
-from pipeline.scoring import match_fields
+from pipeline.scoring import match_fields, rank_cases
 
 
 class DetectionPipeline:
-    def __init__(self, face_service, reid_service, search_service, storage_path="resources"):
+    def __init__(self, face_service, reid_service, search_service, storage_path="resources", matcher_provider=None):
         self.face_svc = face_service
         self.reid_service = reid_service
         self.search_svc = search_service
         self.storage_path = storage_path
+        # callable returning the current TemplateMatcher (multi-photo cases), or None
+        self.matcher_provider = matcher_provider or (lambda: None)
 
         if not os.path.exists(self.storage_path):
             os.makedirs(self.storage_path)
@@ -31,7 +33,7 @@ class DetectionPipeline:
             if embedding is None:
                 continue
 
-            scores, ids = self.search_svc.search_face(embedding, top_k=config.TOP_K)
+            scores, ids = rank_cases(embedding, self.search_svc, self.matcher_provider(), config.TOP_K)
             match = match_fields(scores, ids, is_active)
 
             x1, y1, x2, y2 = [int(v) for v in face.bbox]
@@ -49,6 +51,7 @@ class DetectionPipeline:
             results.append({
                 **match,
                 "face_crop_path": f"resources/{crop_filename}",
+                "det_score": float(getattr(face, "det_score", 0.0)),
                 "bbox": [int(x1), int(y1), int(x2), int(y2)],
                 "embedding": embedding.tolist()
             })

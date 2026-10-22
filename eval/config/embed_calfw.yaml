@@ -1,0 +1,5 @@
+# CALFW cross-age pairs: build the embedding cache
+experiment: embed
+dataset: calfw
+det_size: [640, 640]
+seed: 0

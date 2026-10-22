@@ -28,7 +28,7 @@ class StubFaceService:
         self.rng = np.random.default_rng(seed)
         self.centres = {}
 
-    def detect_faces(self, image):
+    def detect_faces(self, image, pad_retry=False):
         ident = int(image[0, 0, 0])  # the synthetic generator writes the identity id into pixel (0,0)
         centre = self.centres.setdefault(ident, np.random.default_rng(ident).normal(size=512))
         emb = centre + 0.4 * self.rng.normal(size=512)
@@ -52,6 +52,36 @@ def synthetic_images(root, cfg):
     return pd.DataFrame(rows, columns=["image_path", "identity_id", "split", "attrs"])
 
 
+def extra_smoke_metrics(cfg):
+    """Deterministic metrics of the Week 3 components on synthetic vectors (no models)."""
+    from services.feedback import suppression_decision
+    from services.template_matcher import STRATEGIES, TemplateMatcher
+    from services.track_aggregator import Observation, aggregate, split_track
+    rng = np.random.default_rng(cfg["seed"])
+    centres = rng.normal(size=(8, 64))
+    rows, vid = [], 1
+    for case, c in enumerate(centres):
+        for _ in range(3):
+            rows.append((vid, case + 1, c + 0.5 * rng.normal(size=64), float(rng.uniform(0.3, 1.0)), None))
+            vid += 1
+    probes = [(case + 1, c + 0.5 * rng.normal(size=64)) for case, c in enumerate(centres)]
+    out = {}
+    for strat in STRATEGIES:
+        m = TemplateMatcher.from_rows(rows, strategy=strat)
+        hits = 0
+        for case, p in probes:
+            _, ids = m.rank(p, top_k=1)
+            hits += int(len(ids) and ids[0] == case)
+        out[f"template_{strat}_rank1"] = hits / len(probes)
+    track = [Observation(k, centres[0] + 0.2 * rng.normal(size=64), 0.9, 80, 300) for k in range(6)]
+    track += [Observation(k, centres[1] + 0.2 * rng.normal(size=64), 0.9, 80, 300) for k in range(6, 12)]
+    out["track_segments"] = float(len(split_track(track, 0.3)))
+    out["track_qwm_first_dim"] = float(aggregate(track[:6], "quality_weighted_mean")[0][0])
+    down, neg = suppression_decision(centres[2], 0.2, [centres[2] + 0.01], 0.6)
+    out["suppression_downgrade"] = float(down)
+    return out
+
+
 def run(cfg):
     tmp = tempfile.mkdtemp(prefix="locatenet-smoke-")
     try:
@@ -64,7 +94,7 @@ def run(cfg):
 
         emb_of = {p: e for p, e, s in zip(manifest["image_path"], out["emb"], out["status"]) if s == "ok"}
         proto = openset.build_protocol(manifest, out["status"], seed=cfg["seed"], nonmated_frac=0.34)
-        checked = 0
+        checked, metrics = 0, {}
         for split in ("tune", "test"):
             p = proto[split]
             recs = openset.search_probes(openset.gallery_for_size(p, "all"), p["probes"], emb_of, top_k=5)
@@ -72,6 +102,9 @@ def run(cfg):
                 continue
             summary = openset.summarise(recs, n_boot=20, seed=cfg["seed"])
             assert "0.01" in summary["fnir_at_fpir"]
+            metrics[f"{split}_rank1"] = summary["rank1"]["rate"]
+            metrics[f"{split}_fnir_fpir1"] = summary["fnir_at_fpir"]["0.01"]["fnir"]
+            metrics[f"{split}_threshold_fpir1"] = summary["fnir_at_fpir"]["0.01"]["threshold"]
             finite = recs[np.isfinite(recs["top_score"])]
             y = (finite["mated"] & (finite["rank"] == 1)).to_numpy(int)
             if 0 < y.sum() < len(y):
@@ -81,6 +114,12 @@ def run(cfg):
             checked += 1
         assert checked, "no split produced search records"
         assert M.ece([0.5, 0.5], [0, 1]) == 0.0
+        metrics.update(extra_smoke_metrics(cfg))
+        out_path = os.environ.get("LOCATENET_SMOKE_METRICS")
+        if out_path:
+            import json
+            with open(out_path, "w") as f:
+                json.dump(metrics, f, indent=2)
         print(f"smoke OK: {len(manifest)} images, FTE {fte['fte_rate']:.2%}, {checked} splits searched")
     finally:
         shutil.rmtree(tmp, ignore_errors=True)

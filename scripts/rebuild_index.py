@@ -1,4 +1,5 @@
-"""Rebuild vector_db/storage/face_index.bin from the active (NF) cases in the SQL database."""
+"""Rebuild vector_db/storage/face_index.bin from case_embeddings: one vector per active reference photo of
+a case that is still missing (FAISS id = case_embeddings.id)."""
 import os
 import sys
 

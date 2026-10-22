@@ -1,0 +1,17 @@
+{
+  "lfw_accuracy_enrolled": {
+    "value": 0.998327,
+    "higher_is_better": true,
+    "half_width": 0.0012247374886725725
+  },
+  "openset_fnir_fpir1_gallery1000": {
+    "value": 0.005967,
+    "higher_is_better": false,
+    "half_width": 0.0037985000000000002
+  },
+  "bias_fmr_ratio_diagnostic": {
+    "value": 9.259694,
+    "higher_is_better": false,
+    "half_width": 4.6396204999999995
+  }
+}

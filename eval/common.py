@@ -10,8 +10,9 @@ import yaml
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(ROOT, "data")
 CACHE_DIR = os.path.join(ROOT, "eval", "cache")
-RESULTS_DIR = os.path.join(ROOT, "eval", "results")
-PLOTS_DIR = os.path.join(ROOT, "eval", "plots")
+# The regression gate re-runs experiments into a scratch folder instead of the committed results.
+RESULTS_DIR = os.environ.get("LOCATENET_EVAL_RESULTS", os.path.join(ROOT, "eval", "results"))
+PLOTS_DIR = os.environ.get("LOCATENET_EVAL_PLOTS", os.path.join(ROOT, "eval", "plots"))
 MODEL_NAME = "buffalo_l"
 
 
@@ -19,7 +20,10 @@ def load_config(path):
     with open(path) as f:
         cfg = yaml.safe_load(f)
     cfg.setdefault("seed", 0)
-    cfg["_config_path"] = os.path.relpath(os.path.abspath(path), ROOT).replace("\\", "/")
+    try:
+        cfg["_config_path"] = os.path.relpath(os.path.abspath(path), ROOT).replace("\\", "/")
+    except ValueError:  # config on another drive
+        cfg["_config_path"] = os.path.abspath(path).replace("\\", "/")
     return cfg
 
 
@@ -97,7 +101,11 @@ def save_result(name, payload):
     with open(path, "w") as f:
         json.dump(_clean(payload), f, indent=2)
         f.write("\n")
-    print(f"Saved {os.path.relpath(path, ROOT)}")
+    try:
+        shown = os.path.relpath(path, ROOT)
+    except ValueError:  # results folder on another drive (regression gate scratch dir)
+        shown = path
+    print(f"Saved {shown}")
     return path
 
 

@@ -13,5 +13,6 @@ merge_duplicate_identities: false
 identity_aliases:
   John_Gruden: Jon_Gruden
   Stephen_Ebberharter: Stephan_Eberharter
+  Noer_Moeis: Noer_Muis
 result_name: openset_lfw_nomerge
 records_tag: _nomerge
