@@ -23,6 +23,7 @@ EXPERIMENTS = {
     "detsize_check": "eval.protocols.detsize_check",
     "label_noise": "eval.protocols.label_noise",
     "age_gap": "eval.protocols.age_gap",
+    "multi_template": "eval.protocols.multi_template",
     "smoke": "eval.protocols.smoke",
 }
 

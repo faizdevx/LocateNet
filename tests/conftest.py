@@ -77,7 +77,8 @@ for _key, _name in (("UPLOAD_FOLDER", "uploads"), ("RESOURCES_FOLDER", "resource
     app_module.app.config[_key] = os.path.join(_TMP, _name)
     os.makedirs(app_module.app.config[_key], exist_ok=True)
 
-TABLES = ["matches", "sighting_face_reviews", "sighting_faces", "public_submissions", "cases", "users"]
+TABLES = ["matches", "sighting_face_reviews", "sighting_faces", "public_submissions", "case_embeddings", "audit_log",
+          "cases", "users"]
 
 
 @pytest.fixture(scope="session")

@@ -80,7 +80,7 @@
                 <tbody>
                     {% for case in cases %}
                     <tr>
-                        <td class="fw-bold text-primary">{{ case['person_name'] }}</td>
+                        <td class="fw-bold text-primary"><a href="/case/{{ case['id'] }}" class="text-decoration-none">{{ case['person_name'] }}</a></td>
                         <td>{{ case['city'] }}</td>
                         <td>
                             <span class="badge rounded-pill bg-info text-dark">

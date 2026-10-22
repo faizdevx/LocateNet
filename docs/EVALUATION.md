@@ -236,6 +236,65 @@ AgeDB-30: not available (licence request needed); loader in eval/datasets/restri
 
 Interpretation: the model is close to age-invariant for adults over these gaps, but not for children. A photo taken before 18 loses most of its value within about 10 years, which is exactly the missing-child case. Impostor pairs of very young children are also matched more often (higher FMR at small gaps), because young children look alike. FG-NET is small (82 subjects, scanned prints), so treat the shape of the curve as solid and the exact percentages as approximate.
 
+## Multi-photo case templates
+
+LFW: identities with >= 6 enrolled images, split into tune / test by identity (the Week 2 open-set
+partition). In each split 70% are gallery cases and 30% are held out as non-mated; single-image
+identities pad the gallery (distractors, 1 photo each) or act as extra non-mated probes. For each
+gallery identity the images are shuffled once (seeded): the first k (k = 1, 2, 3, 5, nested) are
+enrolled and images 6..15 are the probes, so every k is scored on the same probes.
+FG-NET: subjects are split tune / test; each subject's latest third of photos (by age) are the probes,
+the earlier photos are the enrolment pool, from which k photos are picked either at random or
+age-diverse (spread evenly over the pool's ages, always including the most recent). 30% of the
+subjects are held out as non-mated; LFW single-image identities pad the gallery.
+
+Search uses the production path: SearchService (one FAISS vector per photo) + TemplateMatcher with
+top_k * MAX_PHOTOS_PER_CASE neighbours, grouped by case and re-scored. Because `max` over more
+photos also raises impostor scores, each (strategy, k) gets its OWN threshold at FPIR = 1% chosen
+on the tune split, applied unchanged to the test split. FPIR at the deployed MATCH_THRESHOLD is
+reported too, to show how much each strategy inflates false alerts at one global threshold.
+Photo quality for quality_weighted_mean = detector score x face-size factor (services/photo_quality).
+
+**LFW, identities with >= 6 photos** (test FNIR at FPIR 1%, threshold chosen per strategy on tune; tune threshold in brackets)
+
+| k | max | mean_template | quality_weighted_mean | top2_mean |
+|---|---|---|---|---|
+| 1 | 0.0% (0.284) | 0.0% (0.284) | 0.0% (0.284) | 0.0% (0.284) |
+| 2 | 0.0% (0.289) | 0.0% (0.284) | 0.0% (0.284) | 0.0% (0.284) |
+| 3 | 0.0% (0.294) | 0.0% (0.288) | 0.0% (0.287) | 0.0% (0.284) |
+| 5 | 0.0% (0.297) | 0.0% (0.284) | 0.0% (0.284) | 0.0% (0.285) |
+
+| k | FPIR at 0.312 (max) | FPIR at 0.312 (mean_template) | FPIR at 0.312 (quality_weighted_mean) | FPIR at 0.312 (top2_mean) |
+|---|---|---|---|---|
+| 1 | 0.56% | 0.56% | 0.56% | 0.56% |
+| 2 | 0.56% | 0.56% | 0.56% | 0.56% |
+| 3 | 0.79% | 0.67% | 0.67% | 0.56% |
+| 5 | 0.79% | 0.56% | 0.56% | 0.56% |
+
+**FG-NET, random enrolment photos** (test FNIR at FPIR 1%, threshold chosen per strategy on tune; tune threshold in brackets)
+
+| k | max | mean_template | quality_weighted_mean | top2_mean |
+|---|---|---|---|---|
+| 1 | 22.8% (0.322) | 22.8% (0.322) | 22.8% (0.322) | 22.8% (0.322) |
+| 2 | 14.0% (0.335) | 13.2% (0.324) | 13.2% (0.322) | 16.7% (0.313) |
+| 3 | 8.8% (0.326) | 9.6% (0.335) | 9.6% (0.334) | 12.3% (0.317) |
+| 5 | 3.5% (0.356) | 5.3% (0.353) | 5.3% (0.353) | 5.3% (0.331) |
+
+**FG-NET, age-diverse enrolment photos** (test FNIR at FPIR 1%, threshold chosen per strategy on tune; tune threshold in brackets)
+
+| k | max | mean_template | quality_weighted_mean | top2_mean |
+|---|---|---|---|---|
+| 1 | 7.0% (0.313) | 7.0% (0.313) | 7.0% (0.313) | 7.0% (0.313) |
+| 2 | 4.4% (0.322) | 7.0% (0.313) | 7.0% (0.313) | 22.8% (0.305) |
+| 3 | 3.5% (0.327) | 4.4% (0.335) | 3.5% (0.334) | 4.4% (0.317) |
+| 5 | 0.9% (0.357) | 3.5% (0.353) | 2.6% (0.353) | 1.8% (0.330) |
+
+![Multi-template results](../eval/plots/multi_template.png)
+
+Chosen default `TEMPLATE_STRATEGY = max` (lowest mean test FNIR over k >= 2: max 1.46%, mean_template 2.49%, quality_weighted_mean 2.19%, top2_mean 4.82%).
+
+Interpretation: on LFW every strategy finds every probe (FNIR 0), so LFW cannot rank them; it does show the cost of `max`: with more photos per case the impostor scores rise, the FPIR-1% threshold climbs and, at one fixed production threshold, FPIR grows. On FG-NET (aging children, the real use case) more photos help a lot, and which photos matters more than how they are combined: one age-diverse pick (the most recent earlier photo) beats several random ones. FG-NET test has only 29 gallery subjects and 114 mated probes, so single-point differences between strategies are noise; the trend with k and with age-diverse picks is not.
+
 ## 7a. Robustness to image degradation
 
 Only PROBE images are degraded, at the image level BEFORE detection, so detection failures count.

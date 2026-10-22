@@ -46,3 +46,17 @@ def match_fields(scores, ids, is_active=None):
         "percentage": round(similarity * 100, 2),
         "category": categorize(similarity) if case_id != -1 else CATEGORY_NONE,
     }
+
+
+def rank_cases(embedding, search_svc, matcher=None, top_k=None):
+    """
+    Case-level (scores, case_ids). FAISS stores one vector per reference photo; with a
+    TemplateMatcher the per-photo hits (top_k * MAX_PHOTOS_PER_CASE of them) are grouped by case and
+    re-scored with the configured strategy. Without a matcher the FAISS ids are used as they are
+    (evaluation protocols that enrol one vector per identity).
+    """
+    top_k = int(top_k or config.TOP_K)
+    if matcher is None:
+        return search_svc.search_face(embedding, top_k=top_k)
+    hits = search_svc.search_face(embedding, top_k=matcher.search_k(top_k))
+    return matcher.rank(embedding, hits, top_k=top_k)

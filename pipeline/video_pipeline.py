@@ -4,7 +4,7 @@ import uuid
 import cv2
 
 import config
-from pipeline.scoring import match_fields
+from pipeline.scoring import match_fields, rank_cases
 
 
 class VideoPipeline:
@@ -17,6 +17,7 @@ class VideoPipeline:
         model_name="yolov8n.pt",
         person_conf_threshold=0.35,
         frame_stride=3,
+        matcher_provider=None,
     ):
         self.face_service = face_service
         self.reid_service = reid_service
@@ -24,6 +25,7 @@ class VideoPipeline:
         self.storage_path = storage_path
         self.person_conf_threshold = person_conf_threshold
         self.frame_stride = max(1, int(frame_stride))
+        self.matcher_provider = matcher_provider or (lambda: None)
         self.model_name = model_name
 
         if not os.path.exists(self.storage_path):
@@ -150,9 +152,8 @@ class VideoPipeline:
                     if track_data is None:
                         continue
 
-                    scores, ids = self.search_service.search_face(
-                        track_data["face_embedding"], top_k=config.TOP_K
-                    )
+                    scores, ids = rank_cases(track_data["face_embedding"], self.search_service,
+                                             self.matcher_provider(), config.TOP_K)
                     match = match_fields(scores, ids, is_active)
 
                     current = {

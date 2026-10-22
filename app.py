@@ -34,9 +34,11 @@ logging.basicConfig(
 import config
 from models import *
 from services.alert_service import AlertService, normalize_location
+from services import ages, photo_quality
 from services.calibration import Calibrator
 from services.face_service import FaceService
-from vector_db.rebuild import ensure_index_in_sync
+from services.template_matcher import TemplateMatcher
+from vector_db.rebuild import ensure_index_in_sync, rebuild_face_index
 from vector_db.search_service import SearchService
 from pipeline.detection_pipeline import DetectionPipeline
 from pipeline.video_pipeline import VideoPipeline
@@ -104,10 +106,28 @@ if config.ENABLE_REID:
 else:
     reid_svc = None
 search_svc = SearchService()
-create_db()
-ensure_index_in_sync(search_svc)
-pipeline = DetectionPipeline(face_svc, reid_svc, search_svc)
-video_pipeline = VideoPipeline(face_svc, reid_svc, search_svc)
+if create_db():  # legacy single vectors were moved into case_embeddings: FAISS ids changed meaning
+    rebuild_face_index(search_svc)
+else:
+    ensure_index_in_sync(search_svc)
+
+# Current multi-photo templates (rebuilt whenever reference photos or case status change).
+template_state = {"matcher": None}
+
+
+def reload_matcher():
+    rows = []
+    for r in active_template_rows():
+        now_age = ages.current_age(r["dob"], r["age_reported"], r["age_reported_on"])
+        years_old = ages.photo_years_old(r["photo_date"], r["age_at_photo"], now_age)
+        rows.append((r["id"], r["case_id"], json.loads(r["embedding"]), r["quality_score"], years_old))
+    template_state["matcher"] = TemplateMatcher.from_rows(rows, strategy=config.TEMPLATE_STRATEGY)
+    return template_state["matcher"]
+
+
+reload_matcher()
+pipeline = DetectionPipeline(face_svc, reid_svc, search_svc, matcher_provider=lambda: template_state["matcher"])
+video_pipeline = VideoPipeline(face_svc, reid_svc, search_svc, matcher_provider=lambda: template_state["matcher"])
 
 CITY_COORDS_FALLBACK = {
     "Delhi": (28.6139, 77.2090),
@@ -201,6 +221,68 @@ def get_coords(city_name):
     except Exception:
         logging.warning("Geocoding failed for a city; using fallback coordinates.")
     return CITY_COORDS_FALLBACK.get((city_name or "").strip().title(), (None, None))
+
+
+def can_manage_case(case):
+    return bool(case) and (session.get("role") == "Admin" or case["officer"] == session.get("user"))
+
+
+def process_reference_photo(file, photo_date=None):
+    """Quality-gate one uploaded reference photo and save it. Returns (record, None) or (None, reason)."""
+    ext, upload_error = validate_upload(file, "image")
+    if upload_error:
+        return None, upload_error
+    image = image_obj_to_numpy(file)
+    if image is None:
+        return None, "could not be read as an image"
+    face, reason = photo_quality.gate_reference_face(face_svc.detect_faces(image), config.DET_SCORE_MIN,
+                                                     config.MIN_ENROL_FACE_PX)
+    if reason:
+        return None, reason
+    width = float(face.bbox[2] - face.bbox[0])
+    blur = photo_quality.blur_variance(image, face.bbox)
+    filename = f"{uuid.uuid4().hex}.{ext}"
+    filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+    file.seek(0)
+    file.save(filepath)
+    taken = ages.parse_date(photo_date)
+    return {"image_path": f"uploads/{filename}", "filepath": filepath,
+            "embedding": [float(x) for x in face.embedding], "det_score": float(face.det_score),
+            "quality_score": photo_quality.quality_score(face.det_score, width, blur), "face_px": width,
+            "photo_date": taken.isoformat() if taken else None}, None
+
+
+def enrol_reference_photos(case, records, source="enrolment"):
+    """Store photos in case_embeddings and FAISS (one vector per photo id). Undo everything on failure."""
+    added = []
+    try:
+        for rec in records:
+            age_at = ages.age_at_photo(rec["photo_date"], case["dob"], case["age_reported"], case["age_reported_on"])
+            emb_id = add_case_embedding(case["id"], rec["embedding"], rec["image_path"], rec["det_score"],
+                                        rec["quality_score"], rec["face_px"], rec["photo_date"], age_at, source,
+                                        session.get("user"))
+            added.append(emb_id)
+            search_svc.add_face_embedding(rec["embedding"], emb_id)
+    except Exception:
+        for emb_id in added:
+            set_case_embedding_active(emb_id, False)
+            try:
+                search_svc.remove_face(emb_id)
+            except Exception:
+                logging.exception("Could not remove photo %s from the face index", emb_id)
+        raise
+    finally:
+        reload_matcher()
+    return added
+
+
+def remove_case_from_index(case_id):
+    for row in get_case_embeddings(case_id, active_only=True):
+        try:
+            search_svc.remove_face(row["id"])
+        except Exception:
+            logging.exception("Could not remove photo %s of case %s from the face index", row["id"], case_id)
+    reload_matcher()
 
 
 def is_case_active(case_id):
@@ -537,78 +619,131 @@ def register_case():
     if request.method == "POST":
         person_name = request.form.get("person_name")
         city = request.form.get("city")
-        file = request.files.get('image')
-        
-        if not (person_name and city and file and file.filename):
-            flash("All fields are required.")
+        files = [f for f in request.files.getlist("images") if f and f.filename]
+        legacy = request.files.get("image")
+        if legacy and legacy.filename:
+            files.insert(0, legacy)
+        dates = request.form.getlist("photo_dates")
+
+        if not (person_name and city and files):
+            flash("Name, city and at least one photo are required.")
+            return redirect(url_for("register_case"))
+        if len(files) > config.MAX_PHOTOS_PER_CASE:
+            flash(f"At most {config.MAX_PHOTOS_PER_CASE} reference photos per case.")
             return redirect(url_for("register_case"))
 
-        ext, upload_error = validate_upload(file, "image")
-        if upload_error:
-            flash(upload_error)
-            return redirect(url_for("register_case"))
-
-        # 1. Convert file to numpy for AI processing
-        image_numpy = image_obj_to_numpy(file)
-        if image_numpy is None:
-            flash("The uploaded file could not be read as an image. Please try another photo.")
-            return redirect(url_for("register_case"))
-        
-        # 2. Extract high-accuracy embedding (using FaceService, not MediaPipe)
-        # This fixes the accuracy issues with Ali vs Atharv
-        face_vector = face_svc.get_single_embedding(image_numpy)
-        
-        if face_vector is None:
-            flash("❌ Face not detected. Please provide a clear, front-facing photo.")
-            return redirect(url_for("register_case"))
-
-        # 3. Save the physical file
-        filename = f"{uuid.uuid4().hex}.{ext}"
-        filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
-        file.seek(0) 
-        file.save(filepath)
-        
-        # 4. Add to SQLite Database first so FAISS can store the real case id
-        lat, lon = get_coords(city)
-        # Convert numpy vector to list so it can be JSON serialized
-        vector_list = face_vector.tolist() if hasattr(face_vector, 'tolist') else face_vector
-        
-        case_id = add_case(
-            officer=session["user"], 
-            person_name=person_name, 
-            city=city, 
-            image_path=f"uploads/{filename}", 
-            lat=lat, 
-            lon=lon, 
-            face_vector=vector_list
-        )
-
-        # 5. Enroll into AI Pipeline & persist Vector DB. Roll back the SQL row if FAISS fails.
+        dob = ages.parse_date(request.form.get("dob"))
         try:
-            enrolled = pipeline.enroll_new_person(image_numpy, person_id=case_id, name=person_name, face_vector=face_vector)
+            age_reported = float(request.form.get("age")) if request.form.get("age") else None
+        except ValueError:
+            age_reported = None
+
+        accepted, rejected = [], []
+        for i, file in enumerate(files):
+            record, reason = process_reference_photo(file, dates[i] if i < len(dates) else None)
+            if record:
+                accepted.append(record)
+            else:
+                rejected.append(f"{secure_filename(file.filename) or 'photo ' + str(i + 1)}: {reason}")
+
+        if not accepted:
+            flash("No usable reference photo. " + "; ".join(rejected)
+                  + ". Please provide a clear, front-facing photo.")
+            return redirect(url_for("register_case"))
+
+        lat, lon = get_coords(city)
+        case_id = add_case(officer=session["user"], person_name=person_name, city=city,
+                           image_path=accepted[0]["image_path"], lat=lat, lon=lon,
+                           face_vector=accepted[0]["embedding"], dob=dob.isoformat() if dob else None,
+                           age_reported=age_reported)
+        try:
+            enrol_reference_photos(get_case_by_id(case_id), accepted)
         except Exception:
             logging.exception("FAISS enrollment failed for case %s", case_id)
-            enrolled = False
-
-        if not enrolled:
             delete_case(case_id)
-            try:
-                os.remove(filepath)
-            except OSError:
-                pass
-            try:
-                search_svc.remove_face(case_id)
-            except Exception:
-                logging.exception("Could not clean FAISS entry for case %s", case_id)
+            for rec in accepted:
+                try:
+                    os.remove(rec["filepath"])
+                except OSError:
+                    pass
             flash("Could not enroll the face. The case was not saved; please try again.")
             return redirect(url_for("register_case"))
 
-        flash(f"Success: Case for {person_name} registered and added to the vector database.")
+        log_audit(session["user"], "case_registered", case_id, details={"photos": len(accepted), "rejected": len(rejected)})
+        flash(f"Success: Case for {person_name} registered with {len(accepted)} reference photo(s).")
+        for msg in rejected:
+            flash(f"Photo rejected: {msg}")
         logging.info(f"New Case Registered: {person_name} by {session['user']}")
-        
-        return redirect(url_for("dashboard"))
+        return redirect(url_for("case_detail", case_id=case_id))
 
-    return render_template("register_case.html", user=session.get("name"))
+    return render_template("register_case.html", user=session.get("name"), max_photos=config.MAX_PHOTOS_PER_CASE)
+
+
+@app.route("/case/<int:case_id>")
+@login_required
+def case_detail(case_id):
+    case = get_case_by_id(case_id)
+    if not can_manage_case(case):
+        abort(403)
+    photos = get_case_embeddings(case_id)
+    return render_template("case_detail.html", case=case, photos=photos, audit=get_audit_log(case_id),
+                           max_photos=config.MAX_PHOTOS_PER_CASE,
+                           n_active=sum(1 for p in photos if p["active"]))
+
+
+@app.route("/case/<int:case_id>/photos", methods=["POST"])
+@login_required
+def add_reference_photo(case_id):
+    case = get_case_by_id(case_id)
+    if not can_manage_case(case):
+        abort(403)
+    if case["status"] != "NF":
+        flash("This case is resolved; reference photos can no longer be added.")
+        return redirect(url_for("case_detail", case_id=case_id))
+    if len(get_case_embeddings(case_id, active_only=True)) >= config.MAX_PHOTOS_PER_CASE:
+        flash(f"This case already has {config.MAX_PHOTOS_PER_CASE} active photos. Deactivate one first.")
+        return redirect(url_for("case_detail", case_id=case_id))
+    file = request.files.get("image")
+    if not file or not file.filename:
+        flash("Choose a photo to add.")
+        return redirect(url_for("case_detail", case_id=case_id))
+    record, reason = process_reference_photo(file, request.form.get("photo_date"))
+    if not record:
+        flash(f"Photo rejected: {reason}")
+        return redirect(url_for("case_detail", case_id=case_id))
+    try:
+        [emb_id] = enrol_reference_photos(case, [record])
+    except Exception:
+        logging.exception("Could not add a reference photo to case %s", case_id)
+        flash("Could not add the photo; please try again.")
+        return redirect(url_for("case_detail", case_id=case_id))
+    log_audit(session["user"], "photo_added", case_id, emb_id, {"source": "enrolment", "photo_date": record["photo_date"]})
+    flash("Reference photo added.")
+    return redirect(url_for("case_detail", case_id=case_id))
+
+
+@app.route("/case/<int:case_id>/photo/<int:photo_id>/deactivate", methods=["POST"])
+@login_required
+def deactivate_reference_photo(case_id, photo_id):
+    case = get_case_by_id(case_id)
+    if not can_manage_case(case):
+        abort(403)
+    photo = get_case_embedding(photo_id)
+    if not photo or photo["case_id"] != case_id:
+        abort(404)
+    if photo["active"] and len(get_case_embeddings(case_id, active_only=True)) <= 1:
+        flash("This is the only active reference photo. Add another photo before deactivating it.")
+        return redirect(url_for("case_detail", case_id=case_id))
+    set_case_embedding_active(photo_id, False)
+    try:
+        search_svc.remove_face(photo_id)
+    except Exception:
+        logging.exception("Could not remove photo %s from the face index", photo_id)
+    reload_matcher()
+    log_audit(session["user"], "photo_deactivated", case_id, photo_id, {"source": photo["source"]})
+    flash("Reference photo deactivated.")
+    return redirect(url_for("case_detail", case_id=case_id))
+
 
 @app.route("/resolve/<int:case_id>", methods=["POST"])
 @login_required
@@ -616,10 +751,8 @@ def resolve(case_id):
     case = get_case_by_id(case_id)
     if case and (session["role"] == "Admin" or case['officer'] == session["user"]):
         resolve_case(case_id)
-        try:
-            search_svc.remove_face(case_id)
-        except Exception:
-            logging.exception("Could not remove case %s from the face index", case_id)
+        remove_case_from_index(case_id)
+        log_audit(session["user"], "case_resolved", case_id)
         flash("Case resolved.")
     return redirect(url_for("dashboard"))
 

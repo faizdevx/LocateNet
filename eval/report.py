@@ -352,6 +352,42 @@ def sec_age_gap(R):
     return "\n".join(lines)
 
 
+def sec_multi_template(R):
+    m = R.get("multi_template")
+    if not m:
+        return ""
+    ks, strategies = m["ks"], m["strategies"]
+
+    def table(title, d):
+        out = [f"**{title}** (test FNIR at FPIR 1%, threshold chosen per strategy on tune; tune threshold in brackets)", "",
+               "| k | " + " | ".join(strategies) + " |", "|---|" + "---|" * len(strategies)]
+        for k in ks:
+            out.append(f"| {k} | " + " | ".join(
+                f"{pct(d[str(k)][s]['test_fnir'], 1)} ({d[str(k)][s]['threshold_fpir1_tune']:.3f})" for s in strategies) + " |")
+        return out + [""]
+    lines = ["## Multi-photo case templates", "", m["protocol"], ""]
+    lines += table("LFW, identities with >= 6 photos", m["lfw"])
+    lines += ["| k | " + " | ".join(f"FPIR at {m['production_threshold']} ({s})" for s in strategies) + " |",
+              "|---|" + "---|" * len(strategies)]
+    for k in ks:
+        lines.append(f"| {k} | " + " | ".join(pct(m["lfw"][str(k)][s]["fpir_at_production_threshold"], 2) for s in strategies) + " |")
+    lines += [""]
+    lines += table("FG-NET, random enrolment photos", m["fgnet"]["random"])
+    lines += table("FG-NET, age-diverse enrolment photos", m["fgnet"]["age_diverse"])
+    sz = m["fgnet_sizes"]["test"]
+    lines += [img(m["plot"], "Multi-template results"), "",
+              f"Chosen default `TEMPLATE_STRATEGY = {m['chosen_strategy']}` (lowest mean test FNIR over k >= 2: "
+              + ", ".join(f"{s} {pct(v, 2)}" for s, v in m["mean_fnir_k_ge_2"].items()) + ").", "",
+              "Interpretation: on LFW every strategy finds every probe (FNIR 0), so LFW cannot rank them; it does show "
+              "the cost of `max`: with more photos per case the impostor scores rise, the FPIR-1% threshold climbs and, at "
+              "one fixed production threshold, FPIR grows. On FG-NET (aging children, the real use case) more photos "
+              "help a lot, and which photos matters more than how they are combined: one age-diverse pick (the most recent "
+              "earlier photo) beats several random ones. "
+              f"FG-NET test has only {sz['n_gallery_subjects']} gallery subjects and {sz['n_mated_probes']} mated probes, so "
+              "single-point differences between strategies are noise; the trend with k and with age-diverse picks is not.", ""]
+    return "\n".join(lines)
+
+
 def sec_robustness(R):
     r = R["robustness"]
     if not r:
@@ -491,7 +527,7 @@ THREATS = """## Threats to validity
 def build_report():
     names = ["embed_lfw", "verification_lfw", "openset_lfw", "operating_point", "calibration", "bias",
              "robustness", "quality", "detection_widerface", "latency", "detsize_check", "label_noise", "age_gap",
-             "embed_fgnet", "embed_calfw"]
+             "embed_fgnet", "embed_calfw", "multi_template"]
     R = {n: _load(n) for n in names}
     meta = next((r["meta"] for r in R.values() if r), {})
     parts = [
@@ -505,7 +541,7 @@ def build_report():
         "CIs are 95% bootstrap intervals that resample identities. Scores are cosine similarities of L2-normalised "
         "embeddings; FNIR/FPIR follow the NIST FRVT 1:N definitions at rank 1.", "",
         sec_embed(R), sec_verification(R), sec_openset(R), sec_operating(R), sec_calibration(R), sec_bias(R),
-        sec_label_noise(R), sec_age_gap(R), sec_robustness(R), sec_quality(R), sec_detection(R), sec_latency(R), THREATS,
+        sec_label_noise(R), sec_age_gap(R), sec_multi_template(R), sec_robustness(R), sec_quality(R), sec_detection(R), sec_latency(R), THREATS,
         "## Reproduce", "", "```bash",
         "pip install -r requirements.txt -r requirements-eval.txt",
         "python scripts/get_eval_data.py",

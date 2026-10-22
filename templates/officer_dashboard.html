@@ -139,7 +139,7 @@
                         {% if case['status'] == 'NF' %}
                         <tr>
                             <td class="fw-bold">
-                                <i class="bi bi-person-fill text-muted me-2"></i>{{ case['person_name'] }}
+                                <i class="bi bi-person-fill text-muted me-2"></i><a href="/case/{{ case['id'] }}" class="text-decoration-none">{{ case['person_name'] }}</a>
                             </td>
                             <td><span class="badge bg-light text-dark border">{{ case['city'] }}</span></td>
                             <td class="small text-muted">{{ case['date_reported'] }}</td>

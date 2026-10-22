@@ -45,6 +45,13 @@ DETECT_PAD_RETRY = _env_bool("DETECT_PAD_RETRY", True)
 # faces. Sources: eval/results/detection_widerface.json, eval/results/detsize_check.json.
 DET_SIZE = (_env_int("DET_SIZE", 640),) * 2
 
+# Multi-photo cases (Week 3). FAISS holds one vector per reference photo; TEMPLATE_STRATEGY turns the
+# per-photo similarities of a case into one score. Source: eval/results/multi_template.json.
+TEMPLATE_STRATEGY = os.environ.get("TEMPLATE_STRATEGY", "max")
+MAX_PHOTOS_PER_CASE = _env_int("MAX_PHOTOS_PER_CASE", 5)
+# Reference photos whose face is narrower than this are rejected (eval/results/robustness.json: 32 px).
+MIN_ENROL_FACE_PX = _env_float("MIN_ENROL_FACE_PX", 32)
+
 # Score calibration (eval/calibrate.py). The likelihood shown to officers is only valid at this
 # assumed share of searched faces that belong to an enrolled person; see services/calibration.py.
 CALIBRATOR_PATH = os.environ.get("LOCATENET_CALIBRATOR", os.path.join(BASE_DIR, "models", "calibrator.json"))

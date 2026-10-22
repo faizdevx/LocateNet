@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Case {{ case['person_name'] }} | LocateNet</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <style>
+        body { background: #f5f7fb; }
+        .photo-card img { width: 100%; height: 220px; object-fit: cover; border-top-left-radius: .375rem; border-top-right-radius: .375rem; }
+        .photo-card.inactive img { filter: grayscale(100%); opacity: .5; }
+    </style>
+</head>
+<body>
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h2 class="mb-0">{{ case['person_name'] }}</h2>
+            <div class="text-muted">Case #{{ case['id'] }} · {{ case['city'] }} · reported {{ case['date_reported'] }} ·
+                {{ 'Missing' if case['status'] == 'NF' else 'Found' }}
+                {% if case['dob'] %} · born {{ case['dob'] }}{% elif case['age_reported'] %} · about {{ case['age_reported']|int }} years old on {{ case['age_reported_on'] }}{% endif %}
+            </div>
+        </div>
+        <a href="/dashboard" class="btn btn-outline-secondary">Back to Dashboard</a>
+    </div>
+
+    {% with messages = get_flashed_messages() %}
+      {% for message in messages %}
+        <div class="alert alert-info">{{ message }}</div>
+      {% endfor %}
+    {% endwith %}
+
+    {% if age_warning %}
+    <div class="alert alert-warning"><i class="bi bi-exclamation-triangle"></i> {{ age_warning }}</div>
+    {% endif %}
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header fw-bold">Reference photos ({{ n_active }} active, up to {{ max_photos }})</div>
+        <div class="card-body">
+            <div class="row g-3">
+                {% for p in photos %}
+                <div class="col-md-3">
+                    <div class="card photo-card h-100 {% if not p['active'] %}inactive{% endif %}">
+                        <img src="/{{ p['image_path'] }}" alt="Reference photo">
+                        <div class="card-body small">
+                            <div><strong>{{ 'Active' if p['active'] else 'Deactivated' }}</strong> · {{ p['source'].replace('_', ' ') }}</div>
+                            <div>Taken: {{ p['photo_date'] or 'unknown' }}{% if p['age_at_photo'] is not none %} (age ~{{ p['age_at_photo']|round|int }}){% endif %}</div>
+                            {% if p['quality_score'] is not none %}<div>Quality {{ '%.2f'|format(p['quality_score']) }} · face {{ p['face_px']|int }} px</div>{% endif %}
+                            <div class="text-muted">Added by {{ p['added_by'] or 'migration' }} on {{ p['created_at'] }}</div>
+                            {% if p['active'] and case['status'] == 'NF' %}
+                            <form method="post" action="/case/{{ case['id'] }}/photo/{{ p['id'] }}/deactivate" class="mt-2"
+                                  onsubmit="return confirm('Deactivate this reference photo? It will no longer be used for matching.')">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-sm btn-outline-danger w-100">Deactivate</button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            {% if case['status'] == 'NF' and n_active < max_photos %}
+            <hr>
+            <form method="post" action="/case/{{ case['id'] }}/photos" enctype="multipart/form-data" class="row g-2 align-items-end">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="col-md-6">
+                    <label class="form-label fw-bold">Add reference photo</label>
+                    <input type="file" class="form-control" name="image" accept="image/*" required>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Approx. date taken (optional)</label>
+                    <input type="month" class="form-control" name="photo_date">
+                </div>
+                <div class="col-md-3">
+                    <button type="submit" class="btn btn-primary w-100"><i class="bi bi-plus-circle"></i> Add reference photo</button>
+                </div>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-header fw-bold">Audit log</div>
+        <div class="card-body small">
+            {% if audit %}
+            <table class="table table-sm mb-0">
+                <thead><tr><th>Time</th><th>By</th><th>Action</th><th>Photo</th><th>Details</th></tr></thead>
+                <tbody>
+                {% for a in audit %}
+                <tr><td>{{ a['ts'] }}</td><td>{{ a['actor'] }}</td><td>{{ a['action'].replace('_', ' ') }}</td>
+                    <td>{{ a['target_id'] or '' }}</td><td class="text-muted">{{ a['details'] or '' }}</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="text-muted">No entries yet.</div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+</body>
+</html>
