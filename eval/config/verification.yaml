@@ -1,0 +1,4 @@
+# LFW 1:1 standard protocol (View 2, 10 folds)
+experiment: verification
+far_targets: [1.0e-3, 1.0e-2]
+seed: 0

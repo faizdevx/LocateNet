@@ -1,3 +1,4 @@
+{% import "_scores.html" as scores -%}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -68,6 +69,7 @@
                                     </div>
                                     <div class="small mb-3">
                                         <div><strong>Status:</strong> {{ face.category }}</div>
+                                        <div class="text-muted">{{ scores.score_line(face, face.percentage) }}</div>
                                         {% if face.match_id and face.match_id != -1 %}
                                         <div><strong>Target:</strong> {{ face.matched_person_name or ('Person ' ~ face.match_id) }}</div>
                                         {% endif %}

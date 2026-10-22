@@ -1,0 +1,8 @@
+# Rank-1 score -> P(correct mated match) at an explicit prior
+experiment: calibration
+prior: 0.1
+gallery_size: 1000
+n_bins: 15
+export_path: models/calibrator.json
+seed: 0
+isotonic_ece_margin: 0.005

@@ -1,4 +1,5 @@
 """Shared fixtures. Models are mocked so the tests need no insightface, onnx or torch."""
+import importlib.util
 import os
 import re
 import sqlite3
@@ -9,6 +10,11 @@ import types
 import bcrypt
 import numpy as np
 import pytest
+
+# tests/eval needs requirements-eval.txt (pandas, scikit-learn, scipy, PyYAML); skip it when those are
+# not installed (the lightweight CI job). Paths here are relative to this conftest's folder.
+_EVAL_DEPS = ("pandas", "sklearn", "scipy", "yaml")
+collect_ignore_glob = [] if all(importlib.util.find_spec(m) for m in _EVAL_DEPS) else ["eval/*"]
 
 # Everything the app writes (database, FAISS index, crops) goes to a throwaway directory.
 _TMP = tempfile.mkdtemp(prefix="locatenet-tests-")
@@ -65,6 +71,11 @@ _face_module.FaceService = FakeFaceService
 
 import app as app_module  # noqa: E402
 import models  # noqa: E402
+
+# Never let tests write case photos or sighting media into the real project folders.
+for _key, _name in (("UPLOAD_FOLDER", "uploads"), ("RESOURCES_FOLDER", "resources")):
+    app_module.app.config[_key] = os.path.join(_TMP, _name)
+    os.makedirs(app_module.app.config[_key], exist_ok=True)
 
 TABLES = ["matches", "sighting_face_reviews", "sighting_faces", "public_submissions", "cases", "users"]
 

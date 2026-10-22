@@ -1,0 +1,161 @@
+{
+  "meta": {
+    "experiment": "operating_point",
+    "config": "eval/config/operating_point.yaml",
+    "model": "buffalo_l",
+    "insightface_version": "2.1",
+    "onnxruntime_version": "1.31.0",
+    "faiss_version": "1.15.1",
+    "dataset_version": "LFW original (lfw.tgz, figshare 5976018, sha256 055f7d9c...); pairs.txt View 2",
+    "git_commit": "090fe129b55f7564e3bcbf7c37d9b81a871fd23d",
+    "timestamp": "2026-10-21T19:53:32+00:00",
+    "seed": 0,
+    "python": "3.12.11"
+  },
+  "gallery_size": 1000,
+  "uploads_per_day": 200.0,
+  "faces_per_upload": 4.0,
+  "table": [
+    {
+      "fpir_target": 0.001,
+      "threshold_tune": 0.633523,
+      "test_fnir": 0.331742,
+      "test_fnir_ci": [
+        0.299291,
+        0.36792
+      ],
+      "test_fpir": 0.0,
+      "test_fpir_ci": [
+        0.0,
+        0.0
+      ],
+      "false_alerts_per_day": 0.0,
+      "false_alerts_per_day_ci": [
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "fpir_target": 0.005,
+      "threshold_tune": 0.330883,
+      "test_fnir": 0.006563,
+      "test_fnir_ci": [
+        0.002635,
+        0.01087
+      ],
+      "test_fpir": 0.003601,
+      "test_fpir_ci": [
+        0.001049,
+        0.006442
+      ],
+      "false_alerts_per_day": 2.880658,
+      "false_alerts_per_day_ci": [
+        0.839014,
+        5.153681
+      ]
+    },
+    {
+      "fpir_target": 0.01,
+      "threshold_tune": 0.312255,
+      "test_fnir": 0.005967,
+      "test_fnir_ci": [
+        0.002511,
+        0.009996
+      ],
+      "test_fpir": 0.009259,
+      "test_fpir_ci": [
+        0.005102,
+        0.013544
+      ],
+      "false_alerts_per_day": 7.407407,
+      "false_alerts_per_day_ci": [
+        4.08127,
+        10.834815
+      ]
+    },
+    {
+      "fpir_target": 0.02,
+      "threshold_tune": 0.290258,
+      "test_fnir": 0.00537,
+      "test_fnir_ci": [
+        0.002291,
+        0.009015
+      ],
+      "test_fpir": 0.028292,
+      "test_fpir_ci": [
+        0.020576,
+        0.036908
+      ],
+      "false_alerts_per_day": 22.633745,
+      "false_alerts_per_day_ci": [
+        16.460861,
+        29.52622
+      ]
+    },
+    {
+      "fpir_target": 0.05,
+      "threshold_tune": 0.269963,
+      "test_fnir": 0.00537,
+      "test_fnir_ci": [
+        0.002291,
+        0.009015
+      ],
+      "test_fpir": 0.062757,
+      "test_fpir_ci": [
+        0.050222,
+        0.074897
+      ],
+      "false_alerts_per_day": 50.205761,
+      "false_alerts_per_day_ci": [
+        40.17758,
+        59.917861
+      ]
+    }
+  ],
+  "recommended": {
+    "MATCH_THRESHOLD": 0.312,
+    "HIGH_CONF_THRESHOLD": 0.634,
+    "match_fpir": 0.01,
+    "high_fpir": 0.001
+  },
+  "previous": {
+    "MATCH_THRESHOLD": 0.45,
+    "HIGH_CONF_THRESHOLD": 0.6
+  },
+  "previous_test_stats": {
+    "MATCH_THRESHOLD": {
+      "fnir": 0.019093,
+      "fnir_ci": [
+        0.011458,
+        0.027612
+      ],
+      "fpir": 0.001029,
+      "fpir_ci": [
+        0.0,
+        0.002557
+      ]
+    },
+    "HIGH_CONF_THRESHOLD": {
+      "fnir": 0.22136,
+      "fnir_ci": [
+        0.192684,
+        0.251174
+      ],
+      "fpir": 0.001029,
+      "fpir_ci": [
+        0.0,
+        0.002557
+      ]
+    }
+  },
+  "n_test_mated": 1676,
+  "n_test_nonmated": 1944,
+  "n_tune_nonmated": 1953,
+  "top_tune_nonmated_scores": [
+    0.734288,
+    0.633523,
+    0.620926,
+    0.412127,
+    0.391508
+  ]
+}

@@ -1,0 +1,11 @@
+# Demographic error rates at the global threshold (RFW if present, else LFW-attribute fallback)
+experiment: bias
+min_margin: 0.0
+n_boot: 1000
+nonmated_frac: 0.3
+max_probes_per_identity: 10
+seed: 0
+merge_duplicate_identities: true
+identity_aliases:
+  John_Gruden: Jon_Gruden
+  Stephen_Ebberharter: Stephan_Eberharter

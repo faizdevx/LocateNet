@@ -1,0 +1,62 @@
+{
+  "meta": {
+    "experiment": "detection",
+    "config": "eval/config/detection.yaml",
+    "model": "buffalo_l",
+    "insightface_version": "2.1",
+    "onnxruntime_version": "1.31.0",
+    "faiss_version": "1.15.1",
+    "dataset_version": "WIDER FACE val (Yang et al., CVPR 2016), official eval_tools ground truth",
+    "git_commit": "c334deae186fe739273b0fcffdbf7a365aa24908-dirty",
+    "timestamp": "2026-10-21T21:21:36+00:00",
+    "seed": 0,
+    "python": "3.12.11"
+  },
+  "cpu": "11th Gen Intel(R) Core(TM) i5-11260H @ 2.60GHz",
+  "protocol": "Detector: the SCRFD-10GF model shipped in buffalo_l (det_10g.onnx), run through the production\nFaceService with only the detection model loaded. We compare det_size 640x640 (production) with\n1024x1024. Detections are kept down to score 0.02 so the full precision-recall curve exists;\nrecall at the production threshold (0.5) is reported too.\n\nAP is computed with a Python port of the official WIDER FACE MATLAB evaluation (IoU 0.5, scores\nmin-max normalised over the dataset, 1000 thresholds, VOC-style AP), following the widely used\nre-implementation github.com/wondervictor/WiderFace-Evaluation (MIT licence).",
+  "results": {
+    "640": {
+      "ap": {
+        "easy": 0.948464,
+        "medium": 0.934621,
+        "hard": 0.812793
+      },
+      "recall_at_det_thresh_0.5": {
+        "easy": 0.928027,
+        "medium": 0.890082,
+        "hard": 0.625947
+      },
+      "n_faces": {
+        "easy": 7211,
+        "medium": 13319,
+        "hard": 31958
+      },
+      "sec_per_image_mean": 0.117122,
+      "sec_per_image_p95": 0.159331,
+      "n_images": 3226
+    },
+    "1024": {
+      "ap": {
+        "easy": 0.933724,
+        "medium": 0.930321,
+        "hard": 0.885416
+      },
+      "recall_at_det_thresh_0.5": {
+        "easy": 0.915962,
+        "medium": 0.891358,
+        "hard": 0.751987
+      },
+      "n_faces": {
+        "easy": 7211,
+        "medium": 13319,
+        "hard": 31958
+      },
+      "sec_per_image_mean": 0.283061,
+      "sec_per_image_p95": 0.553229,
+      "n_images": 3226
+    }
+  },
+  "best_hard_det_size": 1024,
+  "recommended_det_size": 640,
+  "recommendation_reason": "1024 gains Hard AP on tiny crowd faces but fails on large close-up faces (LFW FTE 84%, eval/results/detsize_check.json); one detector serves both enrolment and sightings, so keep 640"
+}

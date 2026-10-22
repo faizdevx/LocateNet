@@ -1,0 +1,528 @@
+{
+  "meta": {
+    "experiment": "latency",
+    "config": "eval/config/latency.yaml",
+    "model": "buffalo_l",
+    "insightface_version": "2.1",
+    "onnxruntime_version": "1.31.0",
+    "faiss_version": "1.15.1",
+    "dataset_version": "synthetic grids of LFW photos; random unit vectors for FAISS",
+    "git_commit": "1701775b3016b27ebb7ec30ee9c7f34f7901c616-dirty",
+    "timestamp": "2026-10-21T21:13:16+00:00",
+    "seed": 0,
+    "python": "3.12.11"
+  },
+  "cpu": "11th Gen Intel(R) Core(TM) i5-11260H @ 2.60GHz",
+  "logical_cpus": 12,
+  "onnxruntime_threads": "default (one intra-op thread per physical core)",
+  "onnxruntime_providers": [
+    "AzureExecutionProvider",
+    "CPUExecutionProvider"
+  ],
+  "protocol": "1. DetectionPipeline.process_frame end-to-end (production FaceService: all buffalo_l models\n   loaded, as in the app) on synthetic group images with 1, 5, 10, 20, 50 faces, built by tiling\n   LFW photos on a grid (each tile 250x250 px).\n2. Breakdown of one frame into detection, embedding (recognition model only), the other buffalo_l\n   models the app also runs (landmarks, gender/age) and FAISS search.\n3. SearchService.search_face latency against galleries of 1k / 10k / 100k random unit vectors.",
+  "process_frame": {
+    "1": {
+      "image_size": [
+        250,
+        250
+      ],
+      "faces_detected": 1,
+      "process_frame": {
+        "p50_ms": 337.18165,
+        "p95_ms": 343.463975,
+        "n": 10
+      },
+      "detection": {
+        "p50_ms": 126.26105,
+        "p95_ms": 144.789215,
+        "n": 10
+      },
+      "embedding": {
+        "p50_ms": 150.0719,
+        "p95_ms": 168.62072,
+        "n": 10
+      },
+      "other_models": {
+        "p50_ms": 41.42565,
+        "p95_ms": 56.53148,
+        "n": 10
+      },
+      "search": {
+        "p50_ms": 1.9669,
+        "p95_ms": 12.08894,
+        "n": 10
+      }
+    },
+    "5": {
+      "image_size": [
+        500,
+        750
+      ],
+      "faces_detected": 6,
+      "process_frame": {
+        "p50_ms": 1253.49835,
+        "p95_ms": 1326.44798,
+        "n": 10
+      },
+      "detection": {
+        "p50_ms": 125.10595,
+        "p95_ms": 138.949155,
+        "n": 10
+      },
+      "embedding": {
+        "p50_ms": 440.13885,
+        "p95_ms": 456.425175,
+        "n": 10
+      },
+      "other_models": {
+        "p50_ms": 386.9607,
+        "p95_ms": 477.160395,
+        "n": 10
+      },
+      "search": {
+        "p50_ms": 10.04345,
+        "p95_ms": 10.835735,
+        "n": 10
+      }
+    },
+    "10": {
+      "image_size": [
+        750,
+        1000
+      ],
+      "faces_detected": 12,
+      "process_frame": {
+        "p50_ms": 2417.48315,
+        "p95_ms": 2588.497975,
+        "n": 10
+      },
+      "detection": {
+        "p50_ms": 122.43125,
+        "p95_ms": 137.60457,
+        "n": 10
+      },
+      "embedding": {
+        "p50_ms": 776.69885,
+        "p95_ms": 805.58084,
+        "n": 10
+      },
+      "other_models": {
+        "p50_ms": 756.65135,
+        "p95_ms": 866.11118,
+        "n": 10
+      },
+      "search": {
+        "p50_ms": 19.552,
+        "p95_ms": 27.706265,
+        "n": 10
+      }
+    },
+    "20": {
+      "image_size": [
+        1000,
+        1250
+      ],
+      "faces_detected": 25,
+      "process_frame": {
+        "p50_ms": 5093.05785,
+        "p95_ms": 5185.062745,
+        "n": 10
+      },
+      "detection": {
+        "p50_ms": 127.96915,
+        "p95_ms": 138.58305,
+        "n": 10
+      },
+      "embedding": {
+        "p50_ms": 1539.82795,
+        "p95_ms": 1717.369165,
+        "n": 10
+      },
+      "other_models": {
+        "p50_ms": 1532.4612,
+        "p95_ms": 1713.557555,
+        "n": 10
+      },
+      "search": {
+        "p50_ms": 38.35005,
+        "p95_ms": 54.502335,
+        "n": 10
+      }
+    },
+    "50": {
+      "image_size": [
+        1750,
+        2000
+      ],
+      "faces_detected": 60,
+      "process_frame": {
+        "p50_ms": 11879.03335,
+        "p95_ms": 12006.7021,
+        "n": 10
+      },
+      "detection": {
+        "p50_ms": 134.27135,
+        "p95_ms": 138.11337,
+        "n": 10
+      },
+      "embedding": {
+        "p50_ms": 3613.6387,
+        "p95_ms": 3885.44592,
+        "n": 10
+      },
+      "other_models": {
+        "p50_ms": 3782.14165,
+        "p95_ms": 3932.535085,
+        "n": 10
+      },
+      "search": {
+        "p50_ms": 89.63405,
+        "p95_ms": 122.693745,
+        "n": 10
+      }
+    }
+  },
+  "process_frame_by_det_size": {
+    "640": {
+      "1": {
+        "image_size": [
+          250,
+          250
+        ],
+        "faces_detected": 1,
+        "process_frame": {
+          "p50_ms": 337.18165,
+          "p95_ms": 343.463975,
+          "n": 10
+        },
+        "detection": {
+          "p50_ms": 126.26105,
+          "p95_ms": 144.789215,
+          "n": 10
+        },
+        "embedding": {
+          "p50_ms": 150.0719,
+          "p95_ms": 168.62072,
+          "n": 10
+        },
+        "other_models": {
+          "p50_ms": 41.42565,
+          "p95_ms": 56.53148,
+          "n": 10
+        },
+        "search": {
+          "p50_ms": 1.9669,
+          "p95_ms": 12.08894,
+          "n": 10
+        }
+      },
+      "5": {
+        "image_size": [
+          500,
+          750
+        ],
+        "faces_detected": 6,
+        "process_frame": {
+          "p50_ms": 1253.49835,
+          "p95_ms": 1326.44798,
+          "n": 10
+        },
+        "detection": {
+          "p50_ms": 125.10595,
+          "p95_ms": 138.949155,
+          "n": 10
+        },
+        "embedding": {
+          "p50_ms": 440.13885,
+          "p95_ms": 456.425175,
+          "n": 10
+        },
+        "other_models": {
+          "p50_ms": 386.9607,
+          "p95_ms": 477.160395,
+          "n": 10
+        },
+        "search": {
+          "p50_ms": 10.04345,
+          "p95_ms": 10.835735,
+          "n": 10
+        }
+      },
+      "10": {
+        "image_size": [
+          750,
+          1000
+        ],
+        "faces_detected": 12,
+        "process_frame": {
+          "p50_ms": 2417.48315,
+          "p95_ms": 2588.497975,
+          "n": 10
+        },
+        "detection": {
+          "p50_ms": 122.43125,
+          "p95_ms": 137.60457,
+          "n": 10
+        },
+        "embedding": {
+          "p50_ms": 776.69885,
+          "p95_ms": 805.58084,
+          "n": 10
+        },
+        "other_models": {
+          "p50_ms": 756.65135,
+          "p95_ms": 866.11118,
+          "n": 10
+        },
+        "search": {
+          "p50_ms": 19.552,
+          "p95_ms": 27.706265,
+          "n": 10
+        }
+      },
+      "20": {
+        "image_size": [
+          1000,
+          1250
+        ],
+        "faces_detected": 25,
+        "process_frame": {
+          "p50_ms": 5093.05785,
+          "p95_ms": 5185.062745,
+          "n": 10
+        },
+        "detection": {
+          "p50_ms": 127.96915,
+          "p95_ms": 138.58305,
+          "n": 10
+        },
+        "embedding": {
+          "p50_ms": 1539.82795,
+          "p95_ms": 1717.369165,
+          "n": 10
+        },
+        "other_models": {
+          "p50_ms": 1532.4612,
+          "p95_ms": 1713.557555,
+          "n": 10
+        },
+        "search": {
+          "p50_ms": 38.35005,
+          "p95_ms": 54.502335,
+          "n": 10
+        }
+      },
+      "50": {
+        "image_size": [
+          1750,
+          2000
+        ],
+        "faces_detected": 60,
+        "process_frame": {
+          "p50_ms": 11879.03335,
+          "p95_ms": 12006.7021,
+          "n": 10
+        },
+        "detection": {
+          "p50_ms": 134.27135,
+          "p95_ms": 138.11337,
+          "n": 10
+        },
+        "embedding": {
+          "p50_ms": 3613.6387,
+          "p95_ms": 3885.44592,
+          "n": 10
+        },
+        "other_models": {
+          "p50_ms": 3782.14165,
+          "p95_ms": 3932.535085,
+          "n": 10
+        },
+        "search": {
+          "p50_ms": 89.63405,
+          "p95_ms": 122.693745,
+          "n": 10
+        }
+      }
+    },
+    "1024": {
+      "1": {
+        "image_size": [
+          250,
+          250
+        ],
+        "faces_detected": 1,
+        "process_frame": {
+          "p50_ms": 482.0445,
+          "p95_ms": 512.51461,
+          "n": 10
+        },
+        "detection": {
+          "p50_ms": 254.24565,
+          "p95_ms": 263.92401,
+          "n": 10
+        },
+        "embedding": {
+          "p50_ms": 174.02615,
+          "p95_ms": 183.330505,
+          "n": 10
+        },
+        "other_models": {
+          "p50_ms": 37.35055,
+          "p95_ms": 57.71665,
+          "n": 10
+        },
+        "search": {
+          "p50_ms": 2.2654,
+          "p95_ms": 9.81576,
+          "n": 10
+        }
+      },
+      "5": {
+        "image_size": [
+          500,
+          750
+        ],
+        "faces_detected": 6,
+        "process_frame": {
+          "p50_ms": 1519.66855,
+          "p95_ms": 1549.320345,
+          "n": 10
+        },
+        "detection": {
+          "p50_ms": 259.1438,
+          "p95_ms": 302.90266,
+          "n": 10
+        },
+        "embedding": {
+          "p50_ms": 440.11365,
+          "p95_ms": 514.66639,
+          "n": 10
+        },
+        "other_models": {
+          "p50_ms": 398.1509,
+          "p95_ms": 467.66886,
+          "n": 10
+        },
+        "search": {
+          "p50_ms": 10.77045,
+          "p95_ms": 11.54408,
+          "n": 10
+        }
+      },
+      "10": {
+        "image_size": [
+          750,
+          1000
+        ],
+        "faces_detected": 11,
+        "process_frame": {
+          "p50_ms": 2503.7348,
+          "p95_ms": 2555.380545,
+          "n": 10
+        },
+        "detection": {
+          "p50_ms": 264.49925,
+          "p95_ms": 346.23176,
+          "n": 10
+        },
+        "embedding": {
+          "p50_ms": 727.46165,
+          "p95_ms": 876.949765,
+          "n": 10
+        },
+        "other_models": {
+          "p50_ms": 708.00755,
+          "p95_ms": 819.093165,
+          "n": 10
+        },
+        "search": {
+          "p50_ms": 18.2502,
+          "p95_ms": 26.55216,
+          "n": 10
+        }
+      },
+      "20": {
+        "image_size": [
+          1000,
+          1250
+        ],
+        "faces_detected": 24,
+        "process_frame": {
+          "p50_ms": 5224.34115,
+          "p95_ms": 5346.942435,
+          "n": 10
+        },
+        "detection": {
+          "p50_ms": 269.2382,
+          "p95_ms": 278.60412,
+          "n": 10
+        },
+        "embedding": {
+          "p50_ms": 1518.57535,
+          "p95_ms": 1570.93753,
+          "n": 10
+        },
+        "other_models": {
+          "p50_ms": 1496.57475,
+          "p95_ms": 1618.724935,
+          "n": 10
+        },
+        "search": {
+          "p50_ms": 37.5453,
+          "p95_ms": 77.9992,
+          "n": 10
+        }
+      },
+      "50": {
+        "image_size": [
+          1750,
+          2000
+        ],
+        "faces_detected": 63,
+        "process_frame": {
+          "p50_ms": 13113.7277,
+          "p95_ms": 13409.022625,
+          "n": 10
+        },
+        "detection": {
+          "p50_ms": 264.34075,
+          "p95_ms": 293.580865,
+          "n": 10
+        },
+        "embedding": {
+          "p50_ms": 3784.4765,
+          "p95_ms": 3920.07621,
+          "n": 10
+        },
+        "other_models": {
+          "p50_ms": 3982.7439,
+          "p95_ms": 4306.433035,
+          "n": 10
+        },
+        "search": {
+          "p50_ms": 92.6168,
+          "p95_ms": 109.83166,
+          "n": 10
+        }
+      }
+    }
+  },
+  "faiss_search": {
+    "1000": {
+      "p50_ms": 1.36595,
+      "p95_ms": 1.53594,
+      "n": 300
+    },
+    "10000": {
+      "p50_ms": 2.02655,
+      "p95_ms": 2.330135,
+      "n": 300
+    },
+    "100000": {
+      "p50_ms": 4.5843,
+      "p95_ms": 5.24122,
+      "n": 300
+    }
+  }
+}

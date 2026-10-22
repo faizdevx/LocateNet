@@ -1,0 +1,528 @@
+{
+  "meta": {
+    "experiment": "robustness",
+    "config": "eval/config/robustness.yaml",
+    "model": "buffalo_l",
+    "insightface_version": "2.1",
+    "onnxruntime_version": "1.31.0",
+    "faiss_version": "1.15.1",
+    "dataset_version": "LFW original (lfw.tgz, figshare 5976018, sha256 055f7d9c...); pairs.txt View 2",
+    "git_commit": "1701775b3016b27ebb7ec30ee9c7f34f7901c616-dirty",
+    "timestamp": "2026-10-21T20:59:14+00:00",
+    "seed": 0,
+    "python": "3.12.11"
+  },
+  "threshold": 0.312,
+  "n_mated_probes": 200,
+  "n_nonmated_probes": 200,
+  "protocol": "Only PROBE images are degraded, at the image level BEFORE detection, so detection failures count.\nProbes: a seeded sample of mated and non-mated probes from the LFW open-set TEST split; gallery:\nthe undegraded test gallery of 1000 identities. Threshold: the recommended MATCH_THRESHOLD from\neval/results/operating_point.json.\n\nDegradations (levels in eval/config/robustness.yaml):\n  downscale  face width w px: resize the whole image so the detected face is w px wide (INTER_AREA),\n             then upsample back to the original size (INTER_LINEAR)\n  blur       Gaussian blur, sigma\n  jpeg       JPEG re-encode at quality q\n  gamma      brightness gamma: out = 255 * (in/255) ** gamma (gamma < 1 brightens)\n  occlusion  grey rectangle over the lower f of the face box height (mask-like)\n  cctv       combined: downscale to face width w, Gaussian sensor noise (sigma 4) and JPEG q=40\n             applied at the low resolution, then upsampled (closer to a real low-res camera)\nPer probe we also store det_score, face width and Laplacian blur variance of the detected face,\nwhich the quality-gate experiment reuses.",
+  "results": {
+    "downscale": [
+      {
+        "level": 16,
+        "fte_rate": 0.0025,
+        "fte_rate_mated": 0.005,
+        "fnir": 0.05,
+        "fnir_ci": [
+          0.022483,
+          0.079225
+        ],
+        "fpir": 0.005,
+        "fpir_ci": [
+          0.0,
+          0.016175
+        ],
+        "rank1_any_threshold": 0.98
+      },
+      {
+        "level": 24,
+        "fte_rate": 0.0,
+        "fte_rate_mated": 0.0,
+        "fnir": 0.01,
+        "fnir_ci": [
+          0.0,
+          0.026648
+        ],
+        "fpir": 0.0,
+        "fpir_ci": [
+          0.0,
+          0.0
+        ],
+        "rank1_any_threshold": 0.99
+      },
+      {
+        "level": 32,
+        "fte_rate": 0.0,
+        "fte_rate_mated": 0.0,
+        "fnir": 0.01,
+        "fnir_ci": [
+          0.0,
+          0.026648
+        ],
+        "fpir": 0.0,
+        "fpir_ci": [
+          0.0,
+          0.0
+        ],
+        "rank1_any_threshold": 0.99
+      },
+      {
+        "level": 48,
+        "fte_rate": 0.0,
+        "fte_rate_mated": 0.0,
+        "fnir": 0.01,
+        "fnir_ci": [
+          0.0,
+          0.026648
+        ],
+        "fpir": 0.005,
+        "fpir_ci": [
+          0.0,
+          0.018575
+        ],
+        "rank1_any_threshold": 0.99
+      },
+      {
+        "level": 64,
+        "fte_rate": 0.0,
+        "fte_rate_mated": 0.0,
+        "fnir": 0.01,
+        "fnir_ci": [
+          0.0,
+          0.026648
+        ],
+        "fpir": 0.01,
+        "fpir_ci": [
+          0.0,
+          0.028169
+        ],
+        "rank1_any_threshold": 0.995
+      },
+      {
+        "level": 112,
+        "fte_rate": 0.0,
+        "fte_rate_mated": 0.0,
+        "fnir": 0.01,
+        "fnir_ci": [
+          0.0,
+          0.026648
+        ],
+        "fpir": 0.01,
+        "fpir_ci": [
+          0.0,
+          0.028169
+        ],
+        "rank1_any_threshold": 0.995
+      }
+    ],
+    "blur": [
+      {
+        "level": 0,
+        "fte_rate": 0.0,
+        "fte_rate_mated": 0.0,
+        "fnir": 0.01,
+        "fnir_ci": [
+          0.0,
+          0.026648
+        ],
+        "fpir": 0.01,
+        "fpir_ci": [
+          0.0,
+          0.028169
+        ],
+        "rank1_any_threshold": 0.995
+      },
+      {
+        "level": 1,
+        "fte_rate": 0.0,
+        "fte_rate_mated": 0.0,
+        "fnir": 0.01,
+        "fnir_ci": [
+          0.0,
+          0.026648
+        ],
+        "fpir": 0.0,
+        "fpir_ci": [
+          0.0,
+          0.0
+        ],
+        "rank1_any_threshold": 0.99
+      },
+      {
+        "level": 2,
+        "fte_rate": 0.0,
+        "fte_rate_mated": 0.0,
+        "fnir": 0.01,
+        "fnir_ci": [
+          0.0,
+          0.026648
+        ],
+        "fpir": 0.0,
+        "fpir_ci": [
+          0.0,
+          0.0
+        ],
+        "rank1_any_threshold": 0.99
+      },
+      {
+        "level": 3,
+        "fte_rate": 0.0,
+        "fte_rate_mated": 0.0,
+        "fnir": 0.01,
+        "fnir_ci": [
+          0.0,
+          0.026648
+        ],
+        "fpir": 0.0,
+        "fpir_ci": [
+          0.0,
+          0.0
+        ],
+        "rank1_any_threshold": 0.99
+      },
+      {
+        "level": 5,
+        "fte_rate": 0.01,
+        "fte_rate_mated": 0.015,
+        "fnir": 0.305,
+        "fnir_ci": [
+          0.231406,
+          0.376065
+        ],
+        "fpir": 0.0,
+        "fpir_ci": [
+          0.0,
+          0.0
+        ],
+        "rank1_any_threshold": 0.915
+      }
+    ],
+    "jpeg": [
+      {
+        "level": 95,
+        "fte_rate": 0.0,
+        "fte_rate_mated": 0.0,
+        "fnir": 0.01,
+        "fnir_ci": [
+          0.0,
+          0.026648
+        ],
+        "fpir": 0.01,
+        "fpir_ci": [
+          0.0,
+          0.028169
+        ],
+        "rank1_any_threshold": 0.995
+      },
+      {
+        "level": 50,
+        "fte_rate": 0.0,
+        "fte_rate_mated": 0.0,
+        "fnir": 0.01,
+        "fnir_ci": [
+          0.0,
+          0.026648
+        ],
+        "fpir": 0.005,
+        "fpir_ci": [
+          0.0,
+          0.018575
+        ],
+        "rank1_any_threshold": 0.995
+      },
+      {
+        "level": 30,
+        "fte_rate": 0.0,
+        "fte_rate_mated": 0.0,
+        "fnir": 0.01,
+        "fnir_ci": [
+          0.0,
+          0.026648
+        ],
+        "fpir": 0.005,
+        "fpir_ci": [
+          0.0,
+          0.018575
+        ],
+        "rank1_any_threshold": 0.995
+      },
+      {
+        "level": 15,
+        "fte_rate": 0.0,
+        "fte_rate_mated": 0.0,
+        "fnir": 0.01,
+        "fnir_ci": [
+          0.0,
+          0.026648
+        ],
+        "fpir": 0.005,
+        "fpir_ci": [
+          0.0,
+          0.015673
+        ],
+        "rank1_any_threshold": 0.99
+      }
+    ],
+    "gamma": [
+      {
+        "level": 0.4,
+        "fte_rate": 0.0,
+        "fte_rate_mated": 0.0,
+        "fnir": 0.01,
+        "fnir_ci": [
+          0.0,
+          0.026648
+        ],
+        "fpir": 0.01,
+        "fpir_ci": [
+          0.0,
+          0.028169
+        ],
+        "rank1_any_threshold": 0.995
+      },
+      {
+        "level": 0.7,
+        "fte_rate": 0.0,
+        "fte_rate_mated": 0.0,
+        "fnir": 0.01,
+        "fnir_ci": [
+          0.0,
+          0.026648
+        ],
+        "fpir": 0.01,
+        "fpir_ci": [
+          0.0,
+          0.028169
+        ],
+        "rank1_any_threshold": 0.995
+      },
+      {
+        "level": 1.0,
+        "fte_rate": 0.0,
+        "fte_rate_mated": 0.0,
+        "fnir": 0.01,
+        "fnir_ci": [
+          0.0,
+          0.026648
+        ],
+        "fpir": 0.01,
+        "fpir_ci": [
+          0.0,
+          0.028169
+        ],
+        "rank1_any_threshold": 0.995
+      },
+      {
+        "level": 1.5,
+        "fte_rate": 0.0,
+        "fte_rate_mated": 0.0,
+        "fnir": 0.01,
+        "fnir_ci": [
+          0.0,
+          0.026648
+        ],
+        "fpir": 0.015,
+        "fpir_ci": [
+          0.0,
+          0.034583
+        ],
+        "rank1_any_threshold": 0.995
+      }
+    ],
+    "occlusion": [
+      {
+        "level": 0.0,
+        "fte_rate": 0.0,
+        "fte_rate_mated": 0.0,
+        "fnir": 0.01,
+        "fnir_ci": [
+          0.0,
+          0.026648
+        ],
+        "fpir": 0.01,
+        "fpir_ci": [
+          0.0,
+          0.028169
+        ],
+        "rank1_any_threshold": 0.995
+      },
+      {
+        "level": 0.1,
+        "fte_rate": 0.0,
+        "fte_rate_mated": 0.0,
+        "fnir": 0.01,
+        "fnir_ci": [
+          0.0,
+          0.026648
+        ],
+        "fpir": 0.01,
+        "fpir_ci": [
+          0.0,
+          0.028169
+        ],
+        "rank1_any_threshold": 0.995
+      },
+      {
+        "level": 0.2,
+        "fte_rate": 0.0,
+        "fte_rate_mated": 0.0,
+        "fnir": 0.01,
+        "fnir_ci": [
+          0.0,
+          0.026648
+        ],
+        "fpir": 0.005,
+        "fpir_ci": [
+          0.0,
+          0.016672
+        ],
+        "rank1_any_threshold": 0.995
+      },
+      {
+        "level": 0.3,
+        "fte_rate": 0.0225,
+        "fte_rate_mated": 0.02,
+        "fnir": 0.03,
+        "fnir_ci": [
+          0.009852,
+          0.054633
+        ],
+        "fpir": 0.0,
+        "fpir_ci": [
+          0.0,
+          0.0
+        ],
+        "rank1_any_threshold": 0.97
+      },
+      {
+        "level": 0.4,
+        "fte_rate": 0.06,
+        "fte_rate_mated": 0.075,
+        "fnir": 0.1,
+        "fnir_ci": [
+          0.063775,
+          0.144065
+        ],
+        "fpir": 0.005,
+        "fpir_ci": [
+          0.0,
+          0.015673
+        ],
+        "rank1_any_threshold": 0.905
+      },
+      {
+        "level": 0.5,
+        "fte_rate": 0.15,
+        "fte_rate_mated": 0.175,
+        "fnir": 0.215,
+        "fnir_ci": [
+          0.155491,
+          0.288379
+        ],
+        "fpir": 0.005,
+        "fpir_ci": [
+          0.0,
+          0.015544
+        ],
+        "rank1_any_threshold": 0.815
+      }
+    ],
+    "cctv": [
+      {
+        "level": 16,
+        "fte_rate": 0.13,
+        "fte_rate_mated": 0.14,
+        "fnir": 0.755,
+        "fnir_ci": [
+          0.689886,
+          0.813901
+        ],
+        "fpir": 0.0,
+        "fpir_ci": [
+          0.0,
+          0.0
+        ],
+        "rank1_any_threshold": 0.585
+      },
+      {
+        "level": 24,
+        "fte_rate": 0.03,
+        "fte_rate_mated": 0.04,
+        "fnir": 0.225,
+        "fnir_ci": [
+          0.167057,
+          0.283618
+        ],
+        "fpir": 0.005,
+        "fpir_ci": [
+          0.0,
+          0.015506
+        ],
+        "rank1_any_threshold": 0.93
+      },
+      {
+        "level": 32,
+        "fte_rate": 0.0075,
+        "fte_rate_mated": 0.01,
+        "fnir": 0.035,
+        "fnir_ci": [
+          0.010895,
+          0.060453
+        ],
+        "fpir": 0.005,
+        "fpir_ci": [
+          0.0,
+          0.015548
+        ],
+        "rank1_any_threshold": 0.98
+      },
+      {
+        "level": 48,
+        "fte_rate": 0.0,
+        "fte_rate_mated": 0.0,
+        "fnir": 0.01,
+        "fnir_ci": [
+          0.0,
+          0.026648
+        ],
+        "fpir": 0.005,
+        "fpir_ci": [
+          0.0,
+          0.015673
+        ],
+        "rank1_any_threshold": 0.99
+      },
+      {
+        "level": 64,
+        "fte_rate": 0.0,
+        "fte_rate_mated": 0.0,
+        "fnir": 0.01,
+        "fnir_ci": [
+          0.0,
+          0.026648
+        ],
+        "fpir": 0.005,
+        "fpir_ci": [
+          0.0,
+          0.018575
+        ],
+        "rank1_any_threshold": 0.99
+      }
+    ]
+  },
+  "minimum_usable_face_width": {
+    "width_px": 32,
+    "width_px_clean_downscale": 16,
+    "width_px_cctv": 32,
+    "rule": "FNIR <= undegraded FNIR + 10% (absolute); headline uses the combined cctv degradation",
+    "baseline_fnir": 0.01
+  },
+  "plots": [
+    "eval/plots/robust_downscale.png",
+    "eval/plots/robust_blur.png",
+    "eval/plots/robust_jpeg.png",
+    "eval/plots/robust_gamma.png",
+    "eval/plots/robust_occlusion.png",
+    "eval/plots/robust_cctv.png"
+  ]
+}

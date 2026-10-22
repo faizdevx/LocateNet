@@ -33,3 +33,7 @@ uploads/
 *.pt
 *.onnx
 .env
+
+# Evaluation datasets and cached embeddings (never commit)
+data/
+eval/cache/

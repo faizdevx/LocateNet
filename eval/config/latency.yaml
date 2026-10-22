@@ -1,0 +1,8 @@
+# CPU latency of process_frame and FAISS search
+experiment: latency
+faces: [1, 5, 10, 20, 50]
+repeats: 10
+gallery_sizes: [1000, 10000, 100000]
+queries: 300
+seed: 0
+det_sizes: [640, 1024]

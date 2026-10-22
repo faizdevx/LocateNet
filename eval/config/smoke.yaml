@@ -1,0 +1,7 @@
+# CI smoke test: synthetic images + stub face service; checks the harness runs end to end
+experiment: smoke
+face_service: stub
+n_identities: 6
+images_per_identity: 3
+n_single: 4
+seed: 0

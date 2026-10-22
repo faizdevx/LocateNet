@@ -1,3 +1,4 @@
+{% import "_scores.html" as scores -%}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -63,7 +64,7 @@
                     </div>
                     <p class="mb-1 small text-muted">
                         <i class="bi bi-geo-alt-fill"></i> Sighted at: <strong>{{ alert.location|title }}</strong> | 
-                        <i class="bi bi-cpu-fill"></i> Similarity: <strong>{{ alert.confidence }}%</strong> (needs human review)
+                        <i class="bi bi-cpu-fill"></i> <strong>{{ scores.score_line(alert, alert.confidence) }}</strong>
                     </p>
                     <div class="small text-muted italic">Reported by {{ alert.submitted_by }} on {{ alert.date_detected }}</div>
                 </div>

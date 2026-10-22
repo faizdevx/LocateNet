@@ -1,0 +1,5 @@
+# Quality gate (DET_SCORE_MIN); needs the robustness records
+experiment: quality
+max_reject_undegraded: 0.01
+max_fnir_increase: 0.01
+seed: 0

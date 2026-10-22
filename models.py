@@ -93,6 +93,14 @@ def create_db():
             cursor.execute("ALTER TABLE sighting_faces ADD COLUMN reviewed_by TEXT")
         if "review_timestamp" not in sighting_face_columns:
             cursor.execute("ALTER TABLE sighting_faces ADD COLUMN review_timestamp TEXT")
+        # Week 2: raw cosine similarity and calibrated likelihood (additive migration)
+        for col in ("similarity", "calibrated_likelihood", "likelihood_prior"):
+            if col not in sighting_face_columns:
+                cursor.execute(f"ALTER TABLE sighting_faces ADD COLUMN {col} REAL")
+        match_columns = [row[1] for row in cursor.execute("PRAGMA table_info(matches)").fetchall()]
+        for col in ("similarity", "calibrated_likelihood", "likelihood_prior"):
+            if col not in match_columns:
+                cursor.execute(f"ALTER TABLE matches ADD COLUMN {col} REAL")
 
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS sighting_face_reviews (
@@ -168,10 +176,15 @@ class db_queries:
 
         match_id = face_data.get("match_id")
         percentage = face_data.get("percentage")
+
+        def opt_float(key):
+            value = face_data.get(key)
+            return float(value) if value is not None else None
         with get_db_connection() as conn:
             conn.execute("""
-                INSERT INTO sighting_faces (sighting_id, face_crop_path, match_id, percentage, category, bbox, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO sighting_faces (sighting_id, face_crop_path, match_id, percentage, category, bbox, created_at,
+                                            similarity, calibrated_likelihood, likelihood_prior)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 face_data["sighting_id"],
                 face_data["face_crop_path"],
@@ -180,6 +193,9 @@ class db_queries:
                 face_data.get("category"),
                 bbox_json,
                 current_time,
+                opt_float("similarity"),
+                opt_float("calibrated_likelihood"),
+                opt_float("likelihood_prior"),
             ))
             conn.commit()
 

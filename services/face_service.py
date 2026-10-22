@@ -6,13 +6,17 @@ import config
 
 
 class FaceService:
-    def __init__(self, det_threshold=0.5):
+    def __init__(self, det_threshold=0.5, det_size=(640, 640), allowed_modules=None):
         """
         Initialize the high-accuracy InsightFace model for group-friendly detection.
+        allowed_modules=None loads every buffalo_l model (production default). The evaluation
+        harness passes ["detection", "recognition"], which gives identical embeddings faster.
         """
-        self.app = FaceAnalysis(name="buffalo_l", providers=["CPUExecutionProvider"])
-        self.app.prepare(ctx_id=0, det_size=(640, 640), det_thresh=det_threshold)
-        print(f"Face model loaded (Threshold: {det_threshold})")
+        self.det_size = tuple(det_size)
+        self.app = FaceAnalysis(name="buffalo_l", providers=["CPUExecutionProvider"],
+                                allowed_modules=allowed_modules)
+        self.app.prepare(ctx_id=0, det_size=self.det_size, det_thresh=det_threshold)
+        print(f"Face model loaded (Threshold: {det_threshold}, det_size: {self.det_size})")
 
     def detect_faces(self, frame):
         if frame is None:
