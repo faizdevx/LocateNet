@@ -58,21 +58,22 @@ Not trained or fine-tuned by this project. The recognition model was trained by 
 
 | Metric | Value [95% CI] |
 |---|---|
-| LFW 1:1 accuracy (10-fold), enrolled pairs / end to end | 99.83% ± 0.20% / 99.43% ± 0.41% |
-| FNIR @ FPIR=1%, gallery 1000 (test) | 0.60% [0.25%, 1.01%] |
-| Rank-1 identification, gallery 1000 (test) | 99.58% [99.23%, 99.88%] |
-| ECE raw (min-max) -> calibrated (platt) | 0.110 -> 0.004 |
-| Worst/best group FMR ratio at pooled FMR 1e-4 (LFW fallback; Indian group too small to measure) | 9.26x (asian vs white) [5.49, 14.76] |
+| LFW 1:1 accuracy (10-fold), enrolled pairs / end to end | 99.83% ± 0.20% / 99.82% ± 0.19% |
+| FNIR @ FPIR=1%, gallery 1000 (test) | 0.44% [0.07%, 0.87%] |
+| Rank-1 identification, gallery 1000 (test) | 99.68% [99.29%, 99.94%] |
+| ECE raw (min-max) -> calibrated (platt) | 0.125 -> 0.006 |
+| Worst/best group FMR ratio at pooled FMR 1e-4 (LFW fallback; Indian group too small to measure) | 9.04x (asian vs white) [5.94, 15.67] |
+| FNMR, child enrolment vs 0-2 y / 21+ y age gap (FG-NET) | 2.8% / 59.2%  [52.0%, 66.7%] |
 | Minimum usable face width | 32 px |
 | p95 latency, 10-face photo (CPU, det_size 640) | 2588 ms |
 
 ## Ethical considerations
 
 - Bias audit (LFW-attribute fallback, weak evidence), one global threshold. Asian and Black identities get more false matches than white identities; no mitigation has been applied. Max/min ratios:
-  - FMR at the diagnostic threshold: unbounded (indian has zero errors); among groups with errors: **9.26x** (asian vs white), 95% CI 5.49-14.76
-  - FMR at the operating threshold: unbounded (indian has zero errors); among groups with errors: **10.05x** (black vs white), CI not estimable (errors too rare)
-  - FNMR at the operating threshold: unbounded (black has zero errors); among groups with errors: **1.57x** (asian vs white), 95% CI 1.05-10.11
-- The deployment population (India) is represented by only 55 identities in the test data. The system is **not validated** for Indian faces.
+  - FMR at the diagnostic threshold: unbounded (indian has zero errors); among groups with errors: **9.04x** (asian vs white), 95% CI 5.94-15.67
+  - FMR at the operating threshold: unbounded (indian has zero errors); among groups with errors: **14.00x** (black vs white), 95% CI 6.10-40.88
+  - FNMR at the operating threshold: unbounded (black has zero errors)
+- The deployment population (India) is represented by only 58 identities in the test data. The system is **not validated** for Indian faces.
 - A false match can direct police attention at an innocent person; every alert says it needs human confirmation and shows an *estimated* likelihood, not a certainty.
 - Sighting photos contain bystanders. Their faces are embedded and stored as crops; retention rules apply (see README, DPDP Act 2023).
 - Evaluation images are of public figures (LFW); no evaluation images or embeddings are committed.

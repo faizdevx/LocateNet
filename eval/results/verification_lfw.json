@@ -7,27 +7,27 @@
     "onnxruntime_version": "1.31.0",
     "faiss_version": "1.15.1",
     "dataset_version": "LFW original (lfw.tgz, figshare 5976018, sha256 055f7d9c...); pairs.txt View 2",
-    "git_commit": "b7ce36b4d093dad419a767c342fd9d714dc9d5d0",
-    "timestamp": "2026-10-21T19:40:30+00:00",
+    "git_commit": "f13a1c7324e192f3e4fe30d2f0a818254e40dc87-dirty",
+    "timestamp": "2026-10-22T12:03:07+00:00",
     "seed": 0,
     "python": "3.12.11"
   },
   "protocol": "LFW View 2, 10 folds x 600 pairs; threshold chosen on 9 folds, tested on the 10th",
   "n_pairs": 6000,
-  "n_pair_images_failed_enrol": 20,
-  "accuracy_mean": 0.994333,
-  "accuracy_std": 0.004096,
+  "n_pair_images_failed_enrol": 1,
+  "accuracy_mean": 0.998167,
+  "accuracy_std": 0.001893,
   "fold_accuracy": [
     0.995,
-    0.993333,
-    0.993333,
-    0.985,
-    0.99,
-    0.996667,
+    1.0,
+    0.998333,
+    0.998333,
+    0.995,
+    1.0,
     0.996667,
     1.0,
     0.998333,
-    0.995
+    1.0
   ],
   "fold_threshold": [
     0.262376,
@@ -41,17 +41,17 @@
     0.253115,
     0.253115
   ],
-  "n_pairs_with_failed_image": 35,
-  "accuracy_enrolled_pairs_mean": 0.998327,
-  "accuracy_enrolled_pairs_std": 0.001976,
+  "n_pairs_with_failed_image": 3,
+  "accuracy_enrolled_pairs_mean": 0.998333,
+  "accuracy_enrolled_pairs_std": 0.001972,
   "note_accuracy": "accuracy_mean counts pairs with a failed enrolment as rejected (end-to-end, production detector thresholds); accuracy_enrolled_pairs_* excludes them and is comparable to published LFW numbers, which use pre-aligned crops.",
   "tar_at_far": {
     "0.001": {
-      "tar": 0.989,
+      "tar": 0.996667,
       "threshold": 0.216556
     },
     "0.01": {
-      "tar": 0.989667,
+      "tar": 0.997333,
       "threshold": 0.141601
     }
   },

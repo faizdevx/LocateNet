@@ -294,11 +294,12 @@ WIDER FACE. LFW is easier than real sightings; read the threats to validity in E
 
 | Metric | Value [95% CI] |
 |---|---|
-| LFW 1:1 accuracy (10-fold), enrolled pairs / end to end | 99.83% ± 0.20% / 99.43% ± 0.41% |
-| FNIR @ FPIR=1%, gallery 1000 (test) | 0.60% [0.25%, 1.01%] |
-| Rank-1 identification, gallery 1000 (test) | 99.58% [99.23%, 99.88%] |
-| ECE raw (min-max) -> calibrated (platt) | 0.110 -> 0.004 |
-| Worst/best group FMR ratio at pooled FMR 1e-4 (LFW fallback; Indian group too small to measure) | 9.26x (asian vs white) [5.49, 14.76] |
+| LFW 1:1 accuracy (10-fold), enrolled pairs / end to end | 99.83% ± 0.20% / 99.82% ± 0.19% |
+| FNIR @ FPIR=1%, gallery 1000 (test) | 0.44% [0.07%, 0.87%] |
+| Rank-1 identification, gallery 1000 (test) | 99.68% [99.29%, 99.94%] |
+| ECE raw (min-max) -> calibrated (platt) | 0.125 -> 0.006 |
+| Worst/best group FMR ratio at pooled FMR 1e-4 (LFW fallback; Indian group too small to measure) | 9.04x (asian vs white) [5.94, 15.67] |
+| FNMR, child enrolment vs 0-2 y / 21+ y age gap (FG-NET) | 2.8% / 59.2%  [52.0%, 66.7%] |
 | Minimum usable face width | 32 px |
 | p95 latency, 10-face photo (CPU, det_size 640) | 2588 ms |
 

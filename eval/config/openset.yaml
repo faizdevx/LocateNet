@@ -7,9 +7,11 @@ n_boot: 1000
 hist_gallery_size: 1000
 seed: 0
 # LFW files some people under two names. Same-token names (any order) are merged automatically;
-# these spelling variants were found while inspecting the highest-scoring non-mated searches and
+# these spelling variants were found while inspecting the highest-scoring non-mated searches (Noer_Moeis
+# on the tune split in Week 3, after pad-and-retry detection let that photo enrol) and
 # are merged by name only (no face data is used to decide).
 merge_duplicate_identities: true
 identity_aliases:
   John_Gruden: Jon_Gruden
   Stephen_Ebberharter: Stephan_Eberharter
+  Noer_Moeis: Noer_Muis

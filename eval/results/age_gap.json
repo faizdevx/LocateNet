@@ -1,0 +1,480 @@
+{
+  "meta": {
+    "experiment": "age_gap",
+    "config": "eval/config/age_gap.yaml",
+    "model": "buffalo_l",
+    "insightface_version": "2.1",
+    "onnxruntime_version": "1.31.0",
+    "faiss_version": "1.15.1",
+    "dataset_version": "FG-NET (Lanitis et al.), 1002 images / 82 subjects, mirror yanweifu.github.io/FG_NET_data; CALFW (Zheng, Deng, Hu 2017), official archive, pairs_CALFW.txt",
+    "git_commit": "f13a1c7324e192f3e4fe30d2f0a818254e40dc87-dirty",
+    "timestamp": "2026-10-22T12:22:37+00:00",
+    "seed": 0,
+    "python": "3.12.11"
+  },
+  "protocol": "1:1 on FG-NET (ages 0-69, 82 subjects):\n  * genuine pairs: every within-subject pair; gap = |age_a - age_b| bucketed {0-2, 3-5, 6-10, 11-20, 21+}\n  * impostor pairs: for each genuine pair, `impostors_per_genuine` pairs of two different subjects\n    whose ages match the genuine pair (each within +-1 year when possible), so impostors have the\n    same age mix as the genuine pairs of the bucket\n  * FNMR at the production MATCH_THRESHOLD and TAR at FAR=1e-3 per bucket; pairs with an image\n    that failed to enrol count as non-matches (production behaviour)\n  * reported separately for child enrolment (younger photo < 18 years) and adult enrolment\n1:1 on CALFW (cross-age LFW, 6000 official pairs; no per-image ages): 10-fold accuracy, TAR@FAR=1e-3,\n  FNMR / FMR at the production threshold, next to the LFW numbers.\nOpen-set on FG-NET: subjects are split (seeded) into gallery subjects and held-out non-mated subjects;\n  the gallery is the earliest enrolled photo of each gallery subject plus LFW single-image test\n  distractors; probes are the later photos. The FPIR = 1% threshold comes from the non-mated\n  probes (held-out FG-NET subjects + LFW non-mated test probes). Rank-1 and FNIR per age-gap bucket.\nCIs: 95% bootstrap over subjects.",
+  "threshold": 0.304,
+  "fgnet_fte": 0.0,
+  "fgnet_n_images": 1002,
+  "fgnet_1to1": {
+    "all": {
+      "0-2": {
+        "n_subjects": 81,
+        "n_genuine": 855,
+        "n_impostor": 8571,
+        "genuine_failed_enrol": 0.0,
+        "fnmr": 0.025731,
+        "fnmr_ci": [
+          0.011043,
+          0.045232
+        ],
+        "tar_at_far_1e-3": 0.926316,
+        "tar_ci": [
+          0.881894,
+          0.964167
+        ],
+        "fmr": 0.014351,
+        "fmr_ci": [
+          0.011069,
+          0.01749
+        ],
+        "genuine_mean_score": 0.626322
+      },
+      "3-5": {
+        "n_subjects": 82,
+        "n_genuine": 1162,
+        "n_impostor": 11616,
+        "genuine_failed_enrol": 0.0,
+        "fnmr": 0.047332,
+        "fnmr_ci": [
+          0.028618,
+          0.070739
+        ],
+        "tar_at_far_1e-3": 0.905336,
+        "tar_ci": [
+          0.874457,
+          0.946128
+        ],
+        "fmr": 0.00551,
+        "fmr_ci": [
+          0.004074,
+          0.007145
+        ],
+        "genuine_mean_score": 0.570309
+      },
+      "6-10": {
+        "n_subjects": 82,
+        "n_genuine": 1480,
+        "n_impostor": 14837,
+        "genuine_failed_enrol": 0.0,
+        "fnmr": 0.129054,
+        "fnmr_ci": [
+          0.101158,
+          0.155485
+        ],
+        "tar_at_far_1e-3": 0.815541,
+        "tar_ci": [
+          0.781777,
+          0.869439
+        ],
+        "fmr": 0.002022,
+        "fmr_ci": [
+          0.00133,
+          0.002766
+        ],
+        "genuine_mean_score": 0.480603
+      },
+      "11-20": {
+        "n_subjects": 82,
+        "n_genuine": 1540,
+        "n_impostor": 15381,
+        "genuine_failed_enrol": 0.0,
+        "fnmr": 0.353896,
+        "fnmr_ci": [
+          0.299069,
+          0.407409
+        ],
+        "tar_at_far_1e-3": 0.693506,
+        "tar_ci": [
+          0.616978,
+          0.748529
+        ],
+        "fmr": 0.00065,
+        "fmr_ci": [
+          0.000269,
+          0.001121
+        ],
+        "genuine_mean_score": 0.390242
+      },
+      "21+": {
+        "n_subjects": 50,
+        "n_genuine": 771,
+        "n_impostor": 7675,
+        "genuine_failed_enrol": 0.0,
+        "fnmr": 0.453956,
+        "fnmr_ci": [
+          0.38298,
+          0.531842
+        ],
+        "tar_at_far_1e-3": 0.59144,
+        "tar_ci": [
+          0.506993,
+          0.667156
+        ],
+        "fmr": 0.000391,
+        "fmr_ci": [
+          0.0,
+          0.000831
+        ],
+        "genuine_mean_score": 0.336147
+      }
+    },
+    "child_enrolment": {
+      "0-2": {
+        "n_subjects": 73,
+        "n_genuine": 709,
+        "n_impostor": 7090,
+        "genuine_failed_enrol": 0.0,
+        "fnmr": 0.028209,
+        "fnmr_ci": [
+          0.010776,
+          0.051044
+        ],
+        "tar_at_far_1e-3": 0.913963,
+        "tar_ci": [
+          0.855345,
+          0.952068
+        ],
+        "fmr": 0.016643,
+        "fmr_ci": [
+          0.012979,
+          0.020168
+        ],
+        "genuine_mean_score": 0.611503
+      },
+      "3-5": {
+        "n_subjects": 76,
+        "n_genuine": 933,
+        "n_impostor": 9330,
+        "genuine_failed_enrol": 0.0,
+        "fnmr": 0.05895,
+        "fnmr_ci": [
+          0.034115,
+          0.086341
+        ],
+        "tar_at_far_1e-3": 0.876742,
+        "tar_ci": [
+          0.834709,
+          0.924107
+        ],
+        "fmr": 0.006217,
+        "fmr_ci": [
+          0.004488,
+          0.008061
+        ],
+        "genuine_mean_score": 0.544117
+      },
+      "6-10": {
+        "n_subjects": 76,
+        "n_genuine": 1204,
+        "n_impostor": 12040,
+        "genuine_failed_enrol": 0.0,
+        "fnmr": 0.158638,
+        "fnmr_ci": [
+          0.12809,
+          0.188736
+        ],
+        "tar_at_far_1e-3": 0.760797,
+        "tar_ci": [
+          0.725017,
+          0.823291
+        ],
+        "fmr": 0.002326,
+        "fmr_ci": [
+          0.001535,
+          0.003199
+        ],
+        "genuine_mean_score": 0.444681
+      },
+      "11-20": {
+        "n_subjects": 78,
+        "n_genuine": 1215,
+        "n_impostor": 12150,
+        "genuine_failed_enrol": 0.0,
+        "fnmr": 0.447737,
+        "fnmr_ci": [
+          0.38822,
+          0.503559
+        ],
+        "tar_at_far_1e-3": 0.647737,
+        "tar_ci": [
+          0.575141,
+          0.716983
+        ],
+        "fmr": 0.000247,
+        "fmr_ci": [
+          0.0,
+          0.000562
+        ],
+        "genuine_mean_score": 0.332498
+      },
+      "21+": {
+        "n_subjects": 46,
+        "n_genuine": 583,
+        "n_impostor": 5830,
+        "genuine_failed_enrol": 0.0,
+        "fnmr": 0.591767,
+        "fnmr_ci": [
+          0.51995,
+          0.666667
+        ],
+        "tar_at_far_1e-3": 0.492281,
+        "tar_ci": [
+          0.417994,
+          0.594593
+        ],
+        "fmr": 0.000172,
+        "fmr_ci": [
+          0.0,
+          0.000566
+        ],
+        "genuine_mean_score": 0.275385
+      }
+    },
+    "adult_enrolment": {
+      "0-2": {
+        "n_subjects": 52,
+        "n_genuine": 146,
+        "n_impostor": 1481,
+        "genuine_failed_enrol": 0.0,
+        "fnmr": 0.013699,
+        "fnmr_ci": [
+          0.0,
+          0.045802
+        ],
+        "tar_at_far_1e-3": 0.986301,
+        "tar_ci": [
+          0.954198,
+          1.0
+        ],
+        "fmr": 0.003376,
+        "fmr_ci": [
+          0.0,
+          0.007189
+        ],
+        "genuine_mean_score": 0.698284
+      },
+      "3-5": {
+        "n_subjects": 47,
+        "n_genuine": 229,
+        "n_impostor": 2286,
+        "genuine_failed_enrol": 0.0,
+        "fnmr": 0.0,
+        "fnmr_ci": [
+          0.0,
+          0.0
+        ],
+        "tar_at_far_1e-3": 1.0,
+        "tar_ci": [
+          1.0,
+          1.0
+        ],
+        "fmr": 0.002625,
+        "fmr_ci": [
+          0.000395,
+          0.005878
+        ],
+        "genuine_mean_score": 0.677019
+      },
+      "6-10": {
+        "n_subjects": 44,
+        "n_genuine": 276,
+        "n_impostor": 2797,
+        "genuine_failed_enrol": 0.0,
+        "fnmr": 0.0,
+        "fnmr_ci": [
+          0.0,
+          0.0
+        ],
+        "tar_at_far_1e-3": 1.0,
+        "tar_ci": [
+          1.0,
+          1.0
+        ],
+        "fmr": 0.000715,
+        "fmr_ci": [
+          0.0,
+          0.002455
+        ],
+        "genuine_mean_score": 0.637309
+      },
+      "11-20": {
+        "n_subjects": 39,
+        "n_genuine": 325,
+        "n_impostor": 3231,
+        "genuine_failed_enrol": 0.0,
+        "fnmr": 0.003077,
+        "fnmr_ci": [
+          0.0,
+          0.009935
+        ],
+        "tar_at_far_1e-3": 0.996923,
+        "tar_ci": [
+          0.975691,
+          1.0
+        ],
+        "fmr": 0.002167,
+        "fmr_ci": [
+          0.00066,
+          0.003998
+        ],
+        "genuine_mean_score": 0.606117
+      },
+      "21+": {
+        "n_subjects": 25,
+        "n_genuine": 188,
+        "n_impostor": 1845,
+        "genuine_failed_enrol": 0.0,
+        "fnmr": 0.026596,
+        "fnmr_ci": [
+          0.0,
+          0.067114
+        ],
+        "tar_at_far_1e-3": 0.973404,
+        "tar_ci": [
+          0.928564,
+          1.0
+        ],
+        "fmr": 0.001084,
+        "fmr_ci": [
+          0.0,
+          0.002986
+        ],
+        "genuine_mean_score": 0.524574
+      }
+    }
+  },
+  "fgnet_openset": {
+    "n_gallery_subjects": 62,
+    "n_distractors": 1015,
+    "n_nonmated_probes": 2305,
+    "threshold_fpir1": 0.344449,
+    "fpir_at_production_threshold": 0.02603,
+    "by_gap": {
+      "0-2": {
+        "n_probes": 53,
+        "n_subjects": 37,
+        "fnir_fpir1": 0.188679,
+        "fnir_fpir1_ci": [
+          0.090909,
+          0.304348
+        ],
+        "rank1": 0.886792,
+        "rank1_ci": [
+          0.792433,
+          0.964301
+        ],
+        "fnir_production": 0.132075,
+        "fnir_production_ci": [
+          0.052609,
+          0.235294
+        ]
+      },
+      "3-5": {
+        "n_probes": 86,
+        "n_subjects": 50,
+        "fnir_fpir1": 0.325581,
+        "fnir_fpir1_ci": [
+          0.213483,
+          0.455798
+        ],
+        "rank1": 0.848837,
+        "rank1_ci": [
+          0.764689,
+          0.925926
+        ],
+        "fnir_production": 0.255814,
+        "fnir_production_ci": [
+          0.149393,
+          0.383721
+        ]
+      },
+      "6-10": {
+        "n_probes": 128,
+        "n_subjects": 60,
+        "fnir_fpir1": 0.726562,
+        "fnir_fpir1_ci": [
+          0.609739,
+          0.81255
+        ],
+        "rank1": 0.734375,
+        "rank1_ci": [
+          0.632649,
+          0.826779
+        ],
+        "fnir_production": 0.515625,
+        "fnir_production_ci": [
+          0.40291,
+          0.625024
+        ]
+      },
+      "11-20": {
+        "n_probes": 241,
+        "n_subjects": 62,
+        "fnir_fpir1": 0.854772,
+        "fnir_fpir1_ci": [
+          0.78366,
+          0.921262
+        ],
+        "rank1": 0.526971,
+        "rank1_ci": [
+          0.421936,
+          0.622675
+        ],
+        "fnir_production": 0.80083,
+        "fnir_production_ci": [
+          0.718047,
+          0.875013
+        ]
+      },
+      "21+": {
+        "n_probes": 181,
+        "n_subjects": 41,
+        "fnir_fpir1": 0.856354,
+        "fnir_fpir1_ci": [
+          0.725255,
+          0.965914
+        ],
+        "rank1": 0.331492,
+        "rank1_ci": [
+          0.214764,
+          0.460179
+        ],
+        "fnir_production": 0.839779,
+        "fnir_production_ci": [
+          0.706692,
+          0.950661
+        ]
+      }
+    }
+  },
+  "calfw_1to1": {
+    "n_pairs": 6000,
+    "n_pairs_with_failed_image": 0,
+    "accuracy_mean": 0.957167,
+    "accuracy_std": 0.010879,
+    "accuracy_enrolled_pairs_mean": 0.957167,
+    "accuracy_enrolled_pairs_std": 0.010879,
+    "tar_at_far_1e-3": 0.911667,
+    "tar_threshold": 0.285368,
+    "fnmr_at_production_threshold": 0.095333,
+    "fmr_at_production_threshold": 0.000667
+  },
+  "lfw_reference": {
+    "accuracy_enrolled_pairs_mean": 0.998333,
+    "tar_at_far_1e-3": 0.996667
+  },
+  "agedb": "not available (licence request needed); loader in eval/datasets/restricted.py",
+  "plot": "eval/plots/age_gap_fnmr.png",
+  "headline": "FNMR at the production threshold rises from 2.6% (gap 0-2 years) to 45.4% (gap 21+ years); child enrolments degrade fastest (2.8% -> 59.2%) while adult enrolments stay at 2.7% even at 21+ years"
+}

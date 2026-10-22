@@ -1,0 +1,8 @@
+{
+  "tune_rank1": 1.0,
+  "tune_fnir_fpir1": 0.0,
+  "tune_threshold_fpir1": 0.08032356947660448,
+  "test_rank1": 1.0,
+  "test_fnir_fpir1": 0.0,
+  "test_threshold_fpir1": 0.08230223506689073
+}

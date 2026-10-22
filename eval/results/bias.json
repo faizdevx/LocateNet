@@ -7,107 +7,107 @@
     "onnxruntime_version": "1.31.0",
     "faiss_version": "1.15.1",
     "dataset_version": "LFW original (lfw.tgz, figshare 5976018, sha256 055f7d9c...); pairs.txt View 2 + Kumar et al. LFW attributes v1.2",
-    "git_commit": "3ef4da4b24730a72b48d5d315c2122861eadba52",
-    "timestamp": "2026-10-21T20:03:05+00:00",
+    "git_commit": "f13a1c7324e192f3e4fe30d2f0a818254e40dc87-dirty",
+    "timestamp": "2026-10-22T12:22:21+00:00",
     "seed": 0,
     "python": "3.12.11"
   },
   "data": "FALLBACK: LFW attributes (RFW not available)",
   "protocol": "Preferred data: RFW (official 1:1 pairs per group). If RFW is not present, the FALLBACK uses LFW\nwith the Kumar et al. attribute scores (see eval.datasets.lfw.identity_groups for the labelling\nrule). The fallback is weaker evidence: LFW is mostly white and male, the labels come from a\nclassifier and are noisy, and some groups have very few identities.\n\nViews, all on the LFW **test** split only (the threshold came from the tune split):\n  * 1:1 within-group: FNMR on genuine pairs (up to 10 per person) and FMR on ALL impostor pairs of\n    two different people of the same group (first enrolled image of each), at the global\n    MATCH_THRESHOLD. Because FMR at that threshold is close to zero everywhere, we also report a\n    diagnostic FMR at the stricter-tail threshold where the pooled FMR is 1e-4, and impostor\n    score tails (99th / 99.9th percentile, max), which show differences even when errors are rare.\n  * open-set (Task 3 protocol, gallery 1000): per group FPIR and FNIR at the global threshold.\nCIs: 95% bootstrap over identities. Disparity = max/min across groups; groups with zero errors get\na rule-of-three 95% upper bound (3/n) instead of a point ratio.",
   "group_rule": "race = argmax of mean Asian/White/Black/Indian attribute score per identity (unknown if that max <= min_margin); gender = sign of mean Male score",
-  "threshold": 0.312,
+  "threshold": 0.304,
   "threshold_source": "eval/results/operating_point.json",
-  "diagnostic_threshold": 0.263853,
+  "diagnostic_threshold": 0.263292,
   "diagnostic_fmr_target": 0.0001,
   "race_1to1": {
     "white": {
-      "n_identities": 2092,
-      "n_genuine": 2820,
-      "n_impostor": 2187186,
-      "fmr": 1.3e-05,
+      "n_identities": 2096,
+      "n_genuine": 2831,
+      "n_impostor": 2195560,
+      "fmr": 1.7e-05,
       "fmr_ci": [
-        9e-06,
-        1.8e-05
+        1.2e-05,
+        2.3e-05
       ],
-      "fnmr": 0.003546,
+      "fnmr": 0.003886,
       "fnmr_ci": [
-        0.00107,
-        0.00671
+        0.001202,
+        0.007387
       ],
-      "fmr_diagnostic": 9.3e-05,
+      "fmr_diagnostic": 9.2e-05,
       "fmr_diagnostic_ci": [
         8e-05,
-        0.000107
+        0.000105
       ],
-      "fmr_errors": 29,
-      "fnmr_errors": 10,
-      "impostor_p99": 0.148172,
-      "impostor_p999": 0.205483,
+      "fmr_errors": 38,
+      "fnmr_errors": 11,
+      "impostor_p99": 0.14834,
+      "impostor_p999": 0.205551,
       "impostor_max": 1.0,
-      "genuine_p01": 0.415498,
+      "genuine_p01": 0.416583,
       "fmr_upper_if_zero": null,
       "fnmr_upper_if_zero": null
     },
     "black": {
-      "n_identities": 123,
-      "n_genuine": 105,
-      "n_impostor": 7503,
-      "fmr": 0.000133,
+      "n_identities": 129,
+      "n_genuine": 93,
+      "n_impostor": 8256,
+      "fmr": 0.000242,
       "fmr_ci": [
         0.0,
-        0.00045
+        0.000648
       ],
       "fnmr": 0.0,
       "fnmr_ci": [
         0.0,
         0.0
       ],
-      "fmr_diagnostic": 0.000533,
+      "fmr_diagnostic": 0.000727,
       "fmr_diagnostic_ci": [
-        0.00013,
-        0.001099
+        0.000231,
+        0.00133
       ],
-      "fmr_errors": 1,
+      "fmr_errors": 2,
       "fnmr_errors": 0,
-      "impostor_p99": 0.181804,
-      "impostor_p999": 0.250757,
+      "impostor_p99": 0.178667,
+      "impostor_p999": 0.24449,
       "impostor_max": 0.341506,
-      "genuine_p01": 0.470041,
+      "genuine_p01": 0.473042,
       "fmr_upper_if_zero": null,
-      "fnmr_upper_if_zero": 0.028571
+      "fnmr_upper_if_zero": 0.032258
     },
     "asian": {
-      "n_identities": 181,
-      "n_genuine": 180,
-      "n_impostor": 16290,
-      "fmr": 6.1e-05,
+      "n_identities": 184,
+      "n_genuine": 204,
+      "n_impostor": 16836,
+      "fmr": 0.000178,
       "fmr_ci": [
         0.0,
-        0.000196
+        0.000395
       ],
-      "fnmr": 0.005556,
+      "fnmr": 0.0,
       "fnmr_ci": [
         0.0,
-        0.018408
+        0.0
       ],
-      "fmr_diagnostic": 0.000859,
+      "fmr_diagnostic": 0.000832,
       "fmr_diagnostic_ci": [
-        0.000468,
-        0.00131
+        0.000427,
+        0.001296
       ],
-      "fmr_errors": 1,
-      "fnmr_errors": 1,
-      "impostor_p99": 0.172143,
-      "impostor_p999": 0.256956,
+      "fmr_errors": 3,
+      "fnmr_errors": 0,
+      "impostor_p99": 0.172919,
+      "impostor_p999": 0.255383,
       "impostor_max": 0.329842,
-      "genuine_p01": 0.33471,
+      "genuine_p01": 0.508289,
       "fmr_upper_if_zero": null,
-      "fnmr_upper_if_zero": null
+      "fnmr_upper_if_zero": 0.014706
     },
     "indian": {
-      "n_identities": 55,
-      "n_genuine": 11,
-      "n_impostor": 1485,
+      "n_identities": 58,
+      "n_genuine": 14,
+      "n_impostor": 1653,
       "fmr": 0.0,
       "fmr_ci": [
         0.0,
@@ -125,160 +125,160 @@
       ],
       "fmr_errors": 0,
       "fnmr_errors": 0,
-      "impostor_p99": 0.167558,
-      "impostor_p999": 0.18833,
-      "impostor_max": 0.220876,
-      "genuine_p01": 0.555157,
-      "fmr_upper_if_zero": 0.00202,
-      "fnmr_upper_if_zero": 0.272727
+      "impostor_p99": 0.16031,
+      "impostor_p999": 0.219974,
+      "impostor_max": 0.258366,
+      "genuine_p01": 0.556035,
+      "fmr_upper_if_zero": 0.001815,
+      "fnmr_upper_if_zero": 0.214286
     }
   },
   "gender_1to1": {
     "male": {
-      "n_identities": 2146,
-      "n_genuine": 2571,
-      "n_impostor": 2301585,
-      "fmr": 1.2e-05,
+      "n_identities": 2147,
+      "n_genuine": 2606,
+      "n_impostor": 2303731,
+      "fmr": 1.7e-05,
       "fmr_ci": [
-        7e-06,
-        1.7e-05
+        1.2e-05,
+        2.3e-05
       ],
-      "fnmr": 0.002723,
+      "fnmr": 0.001919,
       "fnmr_ci": [
         0.0,
-        0.006403
+        0.004384
       ],
-      "fmr_diagnostic": 8.7e-05,
+      "fmr_diagnostic": 8.8e-05,
       "fmr_diagnostic_ci": [
-        7.4e-05,
+        7.5e-05,
         0.0001
       ],
-      "fmr_errors": 27,
-      "fnmr_errors": 7,
-      "impostor_p99": 0.148597,
-      "impostor_p999": 0.205266,
+      "fmr_errors": 40,
+      "fnmr_errors": 5,
+      "impostor_p99": 0.148731,
+      "impostor_p999": 0.205699,
       "impostor_max": 1.0,
-      "genuine_p01": 0.435434,
+      "genuine_p01": 0.442452,
       "fmr_upper_if_zero": null,
       "fnmr_upper_if_zero": null
     },
     "female": {
-      "n_identities": 714,
-      "n_genuine": 911,
-      "n_impostor": 254541,
-      "fmr": 4.3e-05,
+      "n_identities": 711,
+      "n_genuine": 876,
+      "n_impostor": 252405,
+      "fmr": 4.4e-05,
       "fmr_ci": [
         2e-05,
-        6.9e-05
+        7.1e-05
       ],
-      "fnmr": 0.005488,
+      "fnmr": 0.006849,
       "fnmr_ci": [
-        0.0,
-        0.013815
+        0.00118,
+        0.013682
       ],
-      "fmr_diagnostic": 0.000216,
+      "fmr_diagnostic": 0.00021,
       "fmr_diagnostic_ci": [
-        0.000164,
-        0.000274
+        0.000159,
+        0.000263
       ],
       "fmr_errors": 11,
-      "fnmr_errors": 5,
-      "impostor_p99": 0.156384,
-      "impostor_p999": 0.219386,
+      "fnmr_errors": 6,
+      "impostor_p99": 0.156198,
+      "impostor_p999": 0.219285,
       "impostor_max": 0.613663,
-      "genuine_p01": 0.358362,
+      "genuine_p01": 0.375901,
       "fmr_upper_if_zero": null,
       "fnmr_upper_if_zero": null
     }
   },
   "gender_disparity": {
     "fmr": {
-      "ratio": 3.683818,
+      "ratio": 2.509958,
       "max_group": "female",
       "min_group": "male",
-      "max": 4.3e-05,
-      "min": 1.2e-05,
+      "max": 4.4e-05,
+      "min": 1.7e-05,
       "note": null,
-      "ratio_nonzero_groups": 3.683818,
+      "ratio_nonzero_groups": 2.509958,
       "min_nonzero_group": "male",
       "nonzero_groups": [
         "female",
         "male"
       ],
       "ci": [
-        1.636658,
-        6.949862
+        1.182136,
+        4.532082
       ],
       "ci_nonzero_groups": [
-        1.482056,
-        6.8851
+        1.194476,
+        4.592044
       ]
     },
     "fnmr": {
-      "ratio": 2.015838,
+      "ratio": 3.569863,
       "max_group": "female",
       "min_group": "male",
-      "max": 0.005488,
-      "min": 0.002723,
+      "max": 0.006849,
+      "min": 0.001919,
       "note": null,
-      "ratio_nonzero_groups": 2.015838,
+      "ratio_nonzero_groups": 3.569863,
       "min_nonzero_group": "male",
       "nonzero_groups": [
         "female",
         "male"
       ],
       "ci": [
-        1.052337,
-        9.787109
+        1.105382,
+        19.051734
       ],
       "ci_nonzero_groups": [
-        1.044485,
-        12.028128
+        1.116792,
+        18.790781
       ]
     },
     "fmr_diagnostic": {
-      "ratio": 2.486577,
+      "ratio": 2.39474,
       "max_group": "female",
       "min_group": "male",
-      "max": 0.000216,
-      "min": 8.7e-05,
+      "max": 0.00021,
+      "min": 8.8e-05,
       "note": null,
-      "ratio_nonzero_groups": 2.486577,
+      "ratio_nonzero_groups": 2.39474,
       "min_nonzero_group": "male",
       "nonzero_groups": [
         "female",
         "male"
       ],
       "ci": [
-        1.807406,
-        3.260108
+        1.758677,
+        3.187997
       ],
       "ci_nonzero_groups": [
-        1.750689,
-        3.351644
+        1.796987,
+        3.167267
       ]
     }
   },
   "race_openset_gallery1000": {
     "white": {
-      "n_identities": 1384,
-      "n_mated": 1358,
-      "n_nonmated": 1452,
-      "fnir": 0.006627,
+      "n_identities": 1387,
+      "n_mated": 1298,
+      "n_nonmated": 1522,
+      "fnir": 0.005393,
       "fnir_ci": [
-        0.002658,
-        0.011182
+        0.000819,
+        0.010698
       ],
-      "fpir": 0.010331,
+      "fpir": 0.01774,
       "fpir_ci": [
-        0.005449,
-        0.016063
+        0.010288,
+        0.026007
       ]
     },
     "black": {
-      "n_identities": 70,
-      "n_mated": 47,
-      "n_nonmated": 68,
+      "n_identities": 76,
+      "n_mated": 30,
+      "n_nonmated": 88,
       "fnir": 0.0,
       "fnir_ci": [
         0.0,
@@ -291,24 +291,24 @@
       ]
     },
     "asian": {
-      "n_identities": 106,
-      "n_mated": 79,
-      "n_nonmated": 125,
-      "fnir": 0.012658,
+      "n_identities": 108,
+      "n_mated": 98,
+      "n_nonmated": 121,
+      "fnir": 0.0,
       "fnir_ci": [
         0.0,
-        0.043478
+        0.0
       ],
-      "fpir": 0.016,
+      "fpir": 0.041322,
       "fpir_ci": [
-        0.0,
-        0.049587
+        0.007871,
+        0.079147
       ]
     },
     "indian": {
       "n_identities": 34,
       "n_mated": 8,
-      "n_nonmated": 29,
+      "n_nonmated": 32,
       "fnir": 0.0,
       "fnir_ci": [
         0.0,
@@ -321,18 +321,18 @@
       ]
     },
     "unknown": {
-      "n_identities": 263,
-      "n_mated": 184,
-      "n_nonmated": 270,
+      "n_identities": 252,
+      "n_mated": 141,
+      "n_nonmated": 291,
       "fnir": 0.0,
       "fnir_ci": [
         0.0,
         0.0
       ],
-      "fpir": 0.003704,
+      "fpir": 0.006873,
       "fpir_ci": [
         0.0,
-        0.011861
+        0.017795
       ]
     }
   },
@@ -341,10 +341,10 @@
       "ratio": null,
       "max_group": "black",
       "min_group": "indian",
-      "max": 0.000133,
+      "max": 0.000242,
       "min": 0.0,
-      "note": "indian has zero observed errors; ratio unbounded. Using the rule-of-three upper bound for indian gives a ratio of at least 0.07x",
-      "ratio_nonzero_groups": 10.052007,
+      "note": "indian has zero observed errors; ratio unbounded. Using the rule-of-three upper bound for indian gives a ratio of at least 0.13x",
+      "ratio_nonzero_groups": 13.996583,
       "min_nonzero_group": "white",
       "nonzero_groups": [
         "asian",
@@ -356,21 +356,20 @@
         null
       ],
       "ci_nonzero_groups": [
-        null,
-        null
+        6.100927,
+        40.883733
       ]
     },
     "fnmr": {
       "ratio": null,
-      "max_group": "asian",
+      "max_group": "white",
       "min_group": "black",
-      "max": 0.005556,
+      "max": 0.003886,
       "min": 0.0,
-      "note": "black has zero observed errors; ratio unbounded. Using the rule-of-three upper bound for black gives a ratio of at least 0.19x",
-      "ratio_nonzero_groups": 1.566667,
-      "min_nonzero_group": "white",
+      "note": "black has zero observed errors; ratio unbounded. Using the rule-of-three upper bound for black gives a ratio of at least 0.12x",
+      "ratio_nonzero_groups": null,
+      "min_nonzero_group": null,
       "nonzero_groups": [
-        "asian",
         "white"
       ],
       "ci": [
@@ -378,18 +377,18 @@
         null
       ],
       "ci_nonzero_groups": [
-        1.052388,
-        10.110159
+        null,
+        null
       ]
     },
     "fmr_diagnostic": {
       "ratio": null,
       "max_group": "asian",
       "min_group": "indian",
-      "max": 0.000859,
+      "max": 0.000832,
       "min": 0.0,
       "note": "indian has zero observed errors; ratio unbounded",
-      "ratio_nonzero_groups": 9.259694,
+      "ratio_nonzero_groups": 9.038223,
       "min_nonzero_group": "white",
       "nonzero_groups": [
         "asian",
@@ -401,8 +400,8 @@
         null
       ],
       "ci_nonzero_groups": [
-        5.485176,
-        14.764417
+        5.941353,
+        15.67135
       ]
     }
   },

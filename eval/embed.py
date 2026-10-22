@@ -87,13 +87,14 @@ class EmbeddingCache:
         os.replace(tmp, self.path)
 
 
-def embed_image(face_svc, image):
-    """Embed one decoded image through the production code path. Returns (emb, det_score, status, bbox)."""
+def embed_image(face_svc, image, pad_retry=False):
+    """Embed one decoded image through the production code path. Returns (emb, det_score, status, bbox).
+    The base cache is single-pass detection (pad_retry=False); the pad-retry layer is applied on top."""
     nan_box = np.full(4, np.nan, dtype="float32")
     zero = np.zeros(EMB_DIM, dtype="float32")
     if image is None:
         return zero, 0.0, STATUS_NO_FACE, nan_box
-    faces = face_svc.detect_faces(image)
+    faces = face_svc.detect_faces(image, pad_retry=pad_retry)
     face = select_face(faces, image.shape)
     if face is None:
         return zero, 0.0, STATUS_NO_FACE, nan_box
@@ -105,28 +106,46 @@ def embed_image(face_svc, image):
     return emb, float(face.det_score), status, np.asarray(face.bbox, dtype="float32")
 
 
-def embed_paths(paths, name, face_svc_factory=make_face_service, transform=None, log_every=500, cache_dir=CACHE_DIR):
+def _fill(cache, todo, name, face_svc, transform, read_fn, log_every, pad_retry):
+    start = time.time()
+    for i, (p, k) in enumerate(todo, 1):
+        image = read_fn(p) if read_fn is not None else cv2.imread(p)
+        if transform is not None and image is not None:
+            image = transform(image, p)
+        cache.records[k] = embed_image(face_svc, image, pad_retry=pad_retry)
+        if i % log_every == 0:
+            print(f"  [{name}] {i}/{len(todo)} embedded ({i / (time.time() - start):.1f} img/s)")
+            cache.save()
+    cache.save()
+
+
+def embed_paths(paths, name, face_svc_factory=make_face_service, transform=None, log_every=500, cache_dir=CACHE_DIR,
+                read_fn=None, pad_retry=None):
     """
     Embed every path (cached by path hash). `transform(image, path)` optionally degrades the image
-    before detection. Returns dict of aligned arrays: emb, det_score, status, bbox.
+    before detection; `read_fn(path)` replaces cv2.imread (for virtual paths such as "img.jpg#frame3").
+    pad_retry (default config.DETECT_PAD_RETRY): images that failed single-pass detection are
+    re-processed with the production pad-and-retry step; those results live in "<name>_padretry".
+    Returns dict of aligned arrays: emb, det_score, status, bbox.
     """
+    import config
+    if pad_retry is None:
+        pad_retry = config.DETECT_PAD_RETRY
     cache = EmbeddingCache(name, cache_dir)
     keys = [path_key(p) for p in paths]
     missing = [(p, k) for p, k in zip(paths, keys) if k not in cache.records]
+    face_svc = None
     if missing:
         face_svc = face_svc_factory()
-        start = time.time()
-        for i, (p, k) in enumerate(missing, 1):
-            image = cv2.imread(p)
-            if transform is not None and image is not None:
-                image = transform(image, p)
-            cache.records[k] = embed_image(face_svc, image)
-            if i % log_every == 0:
-                rate = i / (time.time() - start)
-                print(f"  [{name}] {i}/{len(missing)} embedded ({rate:.1f} img/s)")
-                cache.save()
-        cache.save()
+        _fill(cache, missing, name, face_svc, transform, read_fn, log_every, pad_retry=False)
     recs = [cache.records[k] for k in keys]
+    if pad_retry:
+        retry = EmbeddingCache(name + "_padretry", cache_dir)
+        failed = [(p, k) for p, k, r in zip(paths, keys, recs) if r[2] != STATUS_OK and k not in retry.records]
+        if failed:
+            face_svc = face_svc or face_svc_factory()
+            _fill(retry, failed, name + "_padretry", face_svc, transform, read_fn, log_every, pad_retry=True)
+        recs = [retry.records.get(k, r) if r[2] != STATUS_OK else r for k, r in zip(keys, recs)]
     return {
         "emb": np.stack([r[0] for r in recs]) if recs else np.zeros((0, EMB_DIM), "float32"),
         "det_score": np.array([r[1] for r in recs], dtype="float32"),

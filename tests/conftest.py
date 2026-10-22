@@ -51,7 +51,7 @@ class FakeFaceService:
     def __init__(self, *args, **kwargs):
         self.faces = []
 
-    def detect_faces(self, frame):
+    def detect_faces(self, frame, pad_retry=None):
         return self.faces
 
     def get_quality_embedding(self, face):

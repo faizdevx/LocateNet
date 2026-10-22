@@ -57,6 +57,12 @@ def headline(R):
             txt += f" [{rci[0]:.2f}, {rci[1]:.2f}]"
         rows.append(("Worst/best group FMR ratio at pooled FMR 1e-4" + (" (LFW fallback; Indian group too small to measure)"
                      if "FALLBACK" in b.get("data", "") else ""), txt))
+    ag = R.get("age_gap")
+    if ag:
+        ch = ag["fgnet_1to1"]["child_enrolment"]
+        last = list(ch)[-1]
+        rows.append((f"FNMR, child enrolment vs {list(ch)[0]} y / {last} y age gap (FG-NET)",
+                     f"{pct(ch[list(ch)[0]]['fnmr'], 1)} / {pct(ch[last]['fnmr'], 1)} {ci(ch[last]['fnmr_ci'], 1)}"))
     if r:
         w = r["minimum_usable_face_width"]["width_px"]
         rows.append(("Minimum usable face width", "n/a" if w is None else f"{w} px"))
@@ -88,7 +94,21 @@ def sec_embed(R):
         f"{f['low_quality']}; no face found: {f['no_face']}.",
         f"- **Failure-to-enrol rate (FTE): {pct(f['fte_rate'], 3)}.** Failed images stay in the protocols as misses.",
         "",
-    ])
+    ] + _fte_table(R))
+
+
+def _fte_table(R):
+    rows = []
+    for name, label in (("embed_lfw", "LFW"), ("embed_calfw", "CALFW"), ("embed_fgnet", "FG-NET")):
+        e = R.get(name)
+        if e and e.get("fte_single_pass"):
+            rows.append(f"| {label} | {e['fte']['n_images']} | {pct(e['fte_single_pass']['fte_rate'], 2)} | {pct(e['fte']['fte_rate'], 2)} |")
+    if not rows:
+        return []
+    return ["Close-up portraits defeat single-pass detection: SCRFD misses faces that fill the frame. Since Week 3 "
+            "`FaceService` retries once on the image centred in a 2x canvas when no face passes `DET_SCORE_MIN` "
+            "(`DETECT_PAD_RETRY`, on by default):", "",
+            "| Dataset | Images | FTE single pass | FTE with pad-and-retry |", "|---|---|---|---|"] + rows + [""]
 
 
 def sec_verification(R):
@@ -288,6 +308,50 @@ def sec_bias(R):
     return "\n".join(lines)
 
 
+def sec_age_gap(R):
+    a = R.get("age_gap")
+    if not a:
+        return ""
+    lines = ["## Age gap (missing people found years later)", "", f"**{a['headline']}.**", "", a["protocol"], "",
+             f"Production threshold {num(a['threshold'])}. FG-NET failure to enrol: {pct(a['fgnet_fte'], 1)} "
+             "(with the pad-and-retry detection step; single-pass detection failed on about half of these close-up "
+             "portraits, see section 1).", "",
+             "| Age gap | Genuine pairs | FNMR all [95% CI] | FNMR child enrolment | FNMR adult enrolment | TAR @ FAR 1e-3 | FMR (age-matched impostors) |",
+             "|---|---|---|---|---|---|---|"]
+    allb, ch, ad = a["fgnet_1to1"]["all"], a["fgnet_1to1"]["child_enrolment"], a["fgnet_1to1"]["adult_enrolment"]
+    for b, v in allb.items():
+        c = ch.get(b)
+        d = ad.get(b)
+        lines.append(f"| {b} y | {v['n_genuine']} | {pct(v['fnmr'], 1)}{ci(v['fnmr_ci'], 1)} | "
+                     f"{pct(c['fnmr'], 1) + ci(c['fnmr_ci'], 1) if c else 'n<20'} | "
+                     f"{pct(d['fnmr'], 1) + ci(d['fnmr_ci'], 1) if d else 'n<20'} | {pct(v['tar_at_far_1e-3'], 1)} | "
+                     f"{pct(v['fmr'], 2)} |")
+    lines += ["", img(a["plot"], "FNMR by age gap"), ""]
+    o = a["fgnet_openset"]
+    lines += ["Open-set on FG-NET (gallery: earliest photo of each of "
+              f"{o['n_gallery_subjects']} subjects + {o['n_distractors']} LFW distractors; "
+              f"{o['n_nonmated_probes']} non-mated searches; FPIR 1% threshold {num(o['threshold_fpir1'])}; "
+              f"FPIR at the production threshold on this mix {pct(o['fpir_at_production_threshold'])}):", "",
+              "| Age gap | Probes | Rank-1 | FNIR @ FPIR 1% | FNIR @ production threshold |", "|---|---|---|---|---|"]
+    for b, v in o["by_gap"].items():
+        lines.append(f"| {b} y | {v['n_probes']} | {pct(v['rank1'], 1)}{ci(v['rank1_ci'], 1)} | "
+                     f"{pct(v['fnir_fpir1'], 1)}{ci(v['fnir_fpir1_ci'], 1)} | {pct(v['fnir_production'], 1)} |")
+    c = a.get("calfw_1to1")
+    if c:
+        lines += ["", f"CALFW (cross-age LFW, {c['n_pairs']} official pairs, no per-image ages): accuracy "
+                  f"{pct(c['accuracy_mean'])} ± {pct(c['accuracy_std'])} vs {pct(a['lfw_reference']['accuracy_enrolled_pairs_mean'])} "
+                  f"on LFW; TAR @ FAR 1e-3 {pct(c['tar_at_far_1e-3'])} vs {pct(a['lfw_reference']['tar_at_far_1e-3'])}; "
+                  f"at the production threshold FNMR {pct(c['fnmr_at_production_threshold'])}, FMR "
+                  f"{pct(c['fmr_at_production_threshold'], 3)}."]
+    lines += ["", f"AgeDB-30: {a.get('agedb')}.", "",
+              "Interpretation: the model is close to age-invariant for adults over these gaps, but not for children. A "
+              "photo taken before 18 loses most of its value within about 10 years, which is exactly the missing-child "
+              "case. Impostor pairs of very young children are also matched more often (higher FMR at small gaps), "
+              "because young children look alike. FG-NET is small (82 subjects, scanned prints), so treat the shape "
+              "of the curve as solid and the exact percentages as approximate.", ""]
+    return "\n".join(lines)
+
+
 def sec_robustness(R):
     r = R["robustness"]
     if not r:
@@ -426,7 +490,8 @@ THREATS = """## Threats to validity
 
 def build_report():
     names = ["embed_lfw", "verification_lfw", "openset_lfw", "operating_point", "calibration", "bias",
-             "robustness", "quality", "detection_widerface", "latency", "detsize_check", "label_noise"]
+             "robustness", "quality", "detection_widerface", "latency", "detsize_check", "label_noise", "age_gap",
+             "embed_fgnet", "embed_calfw"]
     R = {n: _load(n) for n in names}
     meta = next((r["meta"] for r in R.values() if r), {})
     parts = [
@@ -440,7 +505,7 @@ def build_report():
         "CIs are 95% bootstrap intervals that resample identities. Scores are cosine similarities of L2-normalised "
         "embeddings; FNIR/FPIR follow the NIST FRVT 1:N definitions at rank 1.", "",
         sec_embed(R), sec_verification(R), sec_openset(R), sec_operating(R), sec_calibration(R), sec_bias(R),
-        sec_label_noise(R), sec_robustness(R), sec_quality(R), sec_detection(R), sec_latency(R), THREATS,
+        sec_label_noise(R), sec_age_gap(R), sec_robustness(R), sec_quality(R), sec_detection(R), sec_latency(R), THREATS,
         "## Reproduce", "", "```bash",
         "pip install -r requirements.txt -r requirements-eval.txt",
         "python scripts/get_eval_data.py",

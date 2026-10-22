@@ -28,7 +28,7 @@ class StubFaceService:
         self.rng = np.random.default_rng(seed)
         self.centres = {}
 
-    def detect_faces(self, image):
+    def detect_faces(self, image, pad_retry=False):
         ident = int(image[0, 0, 0])  # the synthetic generator writes the identity id into pixel (0,0)
         centre = self.centres.setdefault(ident, np.random.default_rng(ident).normal(size=512))
         emb = centre + 0.4 * self.rng.normal(size=512)
@@ -52,6 +52,11 @@ def synthetic_images(root, cfg):
     return pd.DataFrame(rows, columns=["image_path", "identity_id", "split", "attrs"])
 
 
+def extra_smoke_metrics(cfg):
+    """Hook for later tasks: deterministic metrics of new components on synthetic data."""
+    return {}
+
+
 def run(cfg):
     tmp = tempfile.mkdtemp(prefix="locatenet-smoke-")
     try:
@@ -64,7 +69,7 @@ def run(cfg):
 
         emb_of = {p: e for p, e, s in zip(manifest["image_path"], out["emb"], out["status"]) if s == "ok"}
         proto = openset.build_protocol(manifest, out["status"], seed=cfg["seed"], nonmated_frac=0.34)
-        checked = 0
+        checked, metrics = 0, {}
         for split in ("tune", "test"):
             p = proto[split]
             recs = openset.search_probes(openset.gallery_for_size(p, "all"), p["probes"], emb_of, top_k=5)
@@ -72,6 +77,9 @@ def run(cfg):
                 continue
             summary = openset.summarise(recs, n_boot=20, seed=cfg["seed"])
             assert "0.01" in summary["fnir_at_fpir"]
+            metrics[f"{split}_rank1"] = summary["rank1"]["rate"]
+            metrics[f"{split}_fnir_fpir1"] = summary["fnir_at_fpir"]["0.01"]["fnir"]
+            metrics[f"{split}_threshold_fpir1"] = summary["fnir_at_fpir"]["0.01"]["threshold"]
             finite = recs[np.isfinite(recs["top_score"])]
             y = (finite["mated"] & (finite["rank"] == 1)).to_numpy(int)
             if 0 < y.sum() < len(y):
@@ -81,6 +89,12 @@ def run(cfg):
             checked += 1
         assert checked, "no split produced search records"
         assert M.ece([0.5, 0.5], [0, 1]) == 0.0
+        metrics.update(extra_smoke_metrics(cfg))
+        out_path = os.environ.get("LOCATENET_SMOKE_METRICS")
+        if out_path:
+            import json
+            with open(out_path, "w") as f:
+                json.dump(metrics, f, indent=2)
         print(f"smoke OK: {len(manifest)} images, FTE {fte['fte_rate']:.2%}, {checked} splits searched")
     finally:
         shutil.rmtree(tmp, ignore_errors=True)

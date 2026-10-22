@@ -3,7 +3,7 @@ PYTHON ?= python
 VENV ?= .venv
 BIN := $(VENV)/bin
 
-.PHONY: setup init run clean reset-data eval-data eval-all eval-report
+.PHONY: setup init run clean reset-data eval-data eval-all eval-report eval-regress eval-regress-smoke
 
 setup:
 	$(PYTHON) -m venv $(VENV)
@@ -41,3 +41,10 @@ eval-all:
 
 eval-report:
 	$(BIN)/python -m eval report
+
+# Regression gate: re-run the headline suite and compare with eval/results/baseline (fails on regressions)
+eval-regress:
+	$(BIN)/python -m eval regress
+
+eval-regress-smoke:
+	$(BIN)/python -m eval regress --smoke

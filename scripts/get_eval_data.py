@@ -9,8 +9,8 @@ LFW checksums are the SHA-256 values scikit-learn pins for the same figshare fil
 WIDER FACE and LFW-attribute files have no published SHA-256, so their hashes are pinned in
 eval/config/checksums.json (recorded on the first download and verified on every later one).
 
-RFW (Racial Faces in the Wild) needs a research licence and cannot be downloaded automatically;
-this script prints the manual steps.
+RFW, AgeDB-30, CACD and YouTube Faces need a licence request or a large manual download; this
+script prints the steps (see eval/datasets/restricted.py for the expected layouts).
 """
 import hashlib
 import json
@@ -36,6 +36,13 @@ FILES = {
         ("lfw/lfw_attributes.txt",
          "https://www.cs.columbia.edu/CAVE/databases/pubfig/download/lfw_attributes.txt", None),
     ],
+    "fgnet": [
+        ("fgnet/FGNET.zip", "https://yanweifu.github.io/FG_NET_data/FGNET.zip", None),
+    ],
+    # CALFW is hosted on Google Drive by its authors (whdeng.cn/CALFW); needs `pip install gdown`.
+    "calfw": [
+        ("calfw/calfw.zip", "gdrive:1_cYgy7VFCy6JqkR8EvOxCVS02jHN1ozm", None),
+    ],
     "wider": [
         ("widerface/WIDER_val.zip",
          "https://huggingface.co/datasets/CUHK-CSE/wider_face/resolve/main/data/WIDER_val.zip", None),
@@ -56,6 +63,11 @@ RFW (Racial Faces in the Wild) must be requested manually:
        data/RFW/test/txts/{African,Asian,Caucasian,Indian}/<Group>_pairs.txt
   3. Re-run: python -m eval run eval/config/bias.yaml
 Until then the bias audit uses the LFW-attribute fallback.
+
+AgeDB-30: request at https://ibug.doc.ic.ac.uk/resources/agedb/ -> data/agedb/AgeDB/
+CACD (optional, ~3.5 GB): https://bcsiriuschen.github.io/CARC/ -> data/cacd/CACD2000/
+YouTube Faces: request at https://www.cs.tau.ac.il/~wolf/ytfaces/ -> data/ytf/frame_images_DB/
+Without them the age experiments use FG-NET + CALFW and the video experiment uses synthetic tracks.
 """
 
 
@@ -88,6 +100,14 @@ def download(rel, url):
     os.makedirs(os.path.dirname(dest), exist_ok=True)
     tmp = dest + ".part"
     print(f"Downloading {url}")
+    if url.startswith("gdrive:"):
+        try:
+            import gdown
+        except ImportError:
+            raise SystemExit("This file is on Google Drive: pip install gdown, then re-run.")
+        gdown.download(id=url.split(":", 1)[1], output=tmp, quiet=False)
+        os.replace(tmp, dest)
+        return dest
     req = urllib.request.Request(url, headers={"User-Agent": "LocateNet-eval/1.0"})
     with urllib.request.urlopen(req, timeout=120) as r, open(tmp, "wb") as f:
         total = int(r.headers.get("Content-Length") or 0)

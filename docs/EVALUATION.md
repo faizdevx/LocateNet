@@ -8,11 +8,12 @@ Model: InsightFace `buffalo_l` (SCRFD-10GF detector + ArcFace ResNet-50 trained 
 
 | Metric | Value [95% CI] |
 |---|---|
-| LFW 1:1 accuracy (10-fold), enrolled pairs / end to end | 99.83% ± 0.20% / 99.43% ± 0.41% |
-| FNIR @ FPIR=1%, gallery 1000 (test) | 0.60% [0.25%, 1.01%] |
-| Rank-1 identification, gallery 1000 (test) | 99.58% [99.23%, 99.88%] |
-| ECE raw (min-max) -> calibrated (platt) | 0.110 -> 0.004 |
-| Worst/best group FMR ratio at pooled FMR 1e-4 (LFW fallback; Indian group too small to measure) | 9.26x (asian vs white) [5.49, 14.76] |
+| LFW 1:1 accuracy (10-fold), enrolled pairs / end to end | 99.83% ± 0.20% / 99.82% ± 0.19% |
+| FNIR @ FPIR=1%, gallery 1000 (test) | 0.44% [0.07%, 0.87%] |
+| Rank-1 identification, gallery 1000 (test) | 99.68% [99.29%, 99.94%] |
+| ECE raw (min-max) -> calibrated (platt) | 0.125 -> 0.006 |
+| Worst/best group FMR ratio at pooled FMR 1e-4 (LFW fallback; Indian group too small to measure) | 9.04x (asian vs white) [5.94, 15.67] |
+| FNMR, child enrolment vs 0-2 y / 21+ y age gap (FG-NET) | 2.8% / 59.2%  [52.0%, 66.7%] |
 | Minimum usable face width | 32 px |
 | p95 latency, 10-face photo (CPU, det_size 640) | 2588 ms |
 
@@ -22,8 +23,16 @@ CIs are 95% bootstrap intervals that resample identities. Scores are cosine simi
 
 Every image goes through the production `FaceService` (InsightFace `buffalo_l`, det_size 640, `get_quality_embedding` with `DET_SCORE_MIN`) and the same L2 normalisation as `SearchService`. When an LFW image shows several faces, the largest face nearest the centre is used (faces at least half as large as the biggest one, then closest to the centre).
 
-- LFW images: 13233; enrolled: 13205; low quality (det_score < DET_SCORE_MIN): 10; no face found: 18.
-- **Failure-to-enrol rate (FTE): 0.212%.** Failed images stay in the protocols as misses.
+- LFW images: 13233; enrolled: 13232; low quality (det_score < DET_SCORE_MIN): 1; no face found: 0.
+- **Failure-to-enrol rate (FTE): 0.008%.** Failed images stay in the protocols as misses.
+
+Close-up portraits defeat single-pass detection: SCRFD misses faces that fill the frame. Since Week 3 `FaceService` retries once on the image centred in a 2x canvas when no face passes `DET_SCORE_MIN` (`DETECT_PAD_RETRY`, on by default):
+
+| Dataset | Images | FTE single pass | FTE with pad-and-retry |
+|---|---|---|---|
+| LFW | 13233 | 0.21% | 0.01% |
+| CALFW | 7156 | 0.07% | 0.00% |
+| FG-NET | 1002 | 48.70% | 0.00% |
 
 ## 2. 1:1 verification sanity check (LFW standard protocol)
 
@@ -31,16 +40,16 @@ Protocol: official View 2 `pairs.txt` (10 folds x 600 pairs). For each fold the 
 
 | Metric | Value |
 |---|---|
-| Accuracy, end to end (failed enrolment = reject) | 99.43% ± 0.41% |
+| Accuracy, end to end (failed enrolment = reject) | 99.82% ± 0.19% |
 | Accuracy, pairs where both images enrolled (comparable to published) | 99.83% ± 0.20% |
-| Pairs containing an image that failed to enrol | 35 of 6000 |
-| TAR @ FAR=0.1% | 98.90% (threshold 0.217) |
-| TAR @ FAR=1% | 98.97% (threshold 0.142) |
-| Distinct images in pairs.txt that failed to enrol | 20 |
+| Pairs containing an image that failed to enrol | 3 of 6000 |
+| TAR @ FAR=0.1% | 99.67% (threshold 0.217) |
+| TAR @ FAR=1% | 99.73% (threshold 0.142) |
+| Distinct images in pairs.txt that failed to enrol | 1 |
 
 ![LFW ROC](../eval/plots/lfw_roc.png)
 
-Interpretation: on pairs where both images enrolled, accuracy is 99.83%, in line with the published 99.7-99.8% for buffalo_l, so alignment and embedding are wired correctly. The end-to-end figure (99.43%) is lower because the production detector (det_thresh 0.5, DET_SCORE_MIN) rejects some LFW images; published numbers use pre-aligned crops and never fail to enrol. TAR@FAR=0.1% rests on only 3 of 3000 impostor pairs and is noisy; the open-set results below are the ones that matter for the app.
+Interpretation: on pairs where both images enrolled, accuracy is 99.83%, in line with the published 99.7-99.8% for buffalo_l, so alignment and embedding are wired correctly. The end-to-end figure (99.82%) is lower because the production detector (det_thresh 0.5, DET_SCORE_MIN) rejects some LFW images; published numbers use pre-aligned crops and never fail to enrol. TAR@FAR=0.1% rests on only 3 of 3000 impostor pairs and is noisy; the open-set results below are the ones that matter for the app.
 
 ## 3. Open-set 1:N identification (core experiment)
 
@@ -61,20 +70,20 @@ Test split (identities never used for any threshold choice):
 
 | Gallery | Mated / non-mated probes | FNIR @ FPIR 0.1% | FNIR @ FPIR 1% | FNIR @ FPIR 5% | Threshold @ 1% | Rank-1 | Rank-5 |
 |---|---|---|---|---|---|---|---|
-| 100 | 294 / 1944 | 0.68% [0.00%, 1.71%] | 0.68% [0.00%, 1.71%] | 0.68% [0.00%, 1.71%] | 0.264 [0.244, 0.279] | 99.32% [98.35%, 100.00%] | 99.32% |
-| 500 | 1459 / 1944 | 0.75% [0.27%, 35.45%] | 0.55% [0.19%, 0.90%] | 0.48% [0.18%, 0.85%] | 0.298 [0.290, 0.305] | 99.66% [99.31%, 99.93%] | 99.66% |
-| 1000 | 1676 / 1944 | 26.91% [0.41%, 34.71%] | 0.60% [0.25%, 1.01%] | 0.54% [0.23%, 0.90%] | 0.309 [0.302, 0.323] | 99.58% [99.23%, 99.88%] | 99.58% |
-| 1602 | 1676 / 1944 | 26.91% [0.41%, 34.71%] | 0.66% [0.25%, 1.08%] | 0.54% [0.23%, 0.90%] | 0.318 [0.305, 0.327] | 99.58% [99.23%, 99.88%] | 99.58% |
+| 100 | 262 / 2054 | 0.76% [0.00%, 2.37%] | 0.76% [0.00%, 2.37%] | 0.38% [0.00%, 1.18%] | 0.258 [0.245, 0.283] | 100.00% [100.00%, 100.00%] | 100.00% |
+| 500 | 1340 / 2054 | 0.52% [0.08%, 31.17%] | 0.45% [0.00%, 0.94%] | 0.37% [0.00%, 0.85%] | 0.307 [0.286, 0.315] | 99.70% [99.28%, 100.00%] | 99.78% |
+| 1000 | 1575 / 2054 | 0.63% [0.14%, 31.40%] | 0.44% [0.07%, 0.87%] | 0.38% [0.00%, 0.81%] | 0.313 [0.303, 0.322] | 99.68% [99.29%, 99.94%] | 99.75% |
+| 1604 | 1575 / 2054 | 17.84% [0.19%, 31.40%] | 0.44% [0.07%, 0.87%] | 0.38% [0.00%, 0.81%] | 0.321 [0.311, 0.330] | 99.68% [99.29%, 99.94%] | 99.75% |
 
 ![Open-set DET](../eval/plots/openset_det.png)
 
 ![Rank-1 score histogram](../eval/plots/score_hist.png)
 
-At the Week 1 hand-picked threshold (0.45) and gallery 1000: FNIR 1.91%, FPIR 0.10%.
+At the Week 1 hand-picked threshold (0.31) and gallery 1000: FNIR 0.44%, FPIR 1.07%.
 
-Interpretation: a larger gallery gives impostors more chances to reach rank 1, so the threshold for FPIR 1% rises from 0.264 (100 people) to 0.318 (1602 people). On LFW the genuine scores sit far above it, so FNIR stays about the same (0.68% vs 0.66%). At gallery 1000 the misses split into: right person at rank 1 but below threshold 0.18%, wrong person at rank 1 0.18%, probe failed to enrol 0.24% (each as a share of all mated searches).
+Interpretation: a larger gallery gives impostors more chances to reach rank 1, so the threshold for FPIR 1% rises from 0.258 (100 people) to 0.321 (1604 people). On LFW the genuine scores sit far above it, so FNIR stays about the same (0.76% vs 0.44%). At gallery 1000 the misses split into: right person at rank 1 but below threshold 0.13%, wrong person at rank 1 0.25%, probe failed to enrol 0.06% (each as a share of all mated searches).
 
-At FPIR 0.1% the picture changes: FNIR jumps to 26.91% at gallery 1000, because that threshold is set by the two or three highest non-mated scores, which are not ordinary impostors (see 'Label noise and look-alikes' below). With about 1,900 non-mated searches, FPIR 0.1% is not a stable operating point on LFW.
+At FPIR 0.1% the picture changes: FNIR jumps to 0.63% at gallery 1000, because that threshold is set by the two or three highest non-mated scores, which are not ordinary impostors (see 'Label noise and look-alikes' below). With about 1,900 non-mated searches, FPIR 0.1% is not a stable operating point on LFW.
 
 ## 4. Operating point
 
@@ -82,19 +91,19 @@ Chosen on the tune split: **MATCH_THRESHOLD = 0.312** (FPIR 1.0%), **HIGH_CONF_T
 
 ## 5. Score calibration
 
-Rank-1 cosine -> P(correct mated match), fitted on the tune split (gallery 1000), evaluated on the test split (1672 mated / 1939 non-mated searches), both re-weighted to a **10% mated prior**.
+Rank-1 cosine -> P(correct mated match), fitted on the tune split (gallery 1000), evaluated on the test split (1574 mated / 2054 non-mated searches), both re-weighted to a **10% mated prior**.
 
 | Method | ECE (test) | Brier (test) |
 |---|---|---|
-| raw_minmax | 0.1096 | 0.0207 |
-| platt | 0.0037 | 0.0022 |
-| isotonic | 0.0010 | 0.0014 |
+| raw_minmax | 0.1254 | 0.0245 |
+| platt | 0.0061 | 0.0023 |
+| isotonic | 0.0023 | 0.0020 |
 
 ![Reliability diagram](../eval/plots/calibration_reliability.png)
 
-Chosen: **platt** (platt unless isotonic ECE is lower by more than 0.005), exported as plain JSON to `models/calibrator.json`. Example outputs: 0.30 -> 1%, 0.40 -> 18%, 0.50 -> 80%, 0.60 -> 99%, 0.70 -> 100%.
+Chosen: **platt** (platt unless isotonic ECE is lower by more than 0.005), exported as plain JSON to `models/calibrator.json`. Example outputs: 0.30 -> 2%, 0.40 -> 16%, 0.50 -> 67%, 0.60 -> 96%, 0.70 -> 100%.
 
-Interpretation: LFW scores are so well separated that only 1.04% of searches (n=161) get a predicted probability between 5% and 95%, which is why every ECE is small. In that middle range the calibrator predicts 71% on average while 91% were in fact correct, so it is conservative there. Raw min-max scores are badly calibrated (they spread non-mated searches over 0-0.3 and are over-confident).
+Interpretation: LFW scores are so well separated that only 1.91% of searches (n=277) get a predicted probability between 5% and 95%, which is why every ECE is small. In that middle range the calibrator predicts 73% on average while 91% were in fact correct, so it is conservative there. Raw min-max scores are badly calibrated (they spread non-mated searches over 0-0.3 and are over-confident).
 
 **Base-rate caveat.** The probability is only valid when about 10% of searched faces really belong to an enrolled person. In a crowd photo most faces are strangers, so the true prior may be much lower, and the probability for the same score drops. To re-target prior pi' from the fitting prior pi: odds' = odds x (pi'/(1-pi')) / (pi/(1-pi)). The prior is `CALIBRATION_PRIOR` in `config.py`.
 
@@ -114,37 +123,37 @@ Views, all on the LFW **test** split only (the threshold came from the tune spli
 CIs: 95% bootstrap over identities. Disparity = max/min across groups; groups with zero errors get
 a rule-of-three 95% upper bound (3/n) instead of a point ratio.
 
-Operating threshold 0.312 (from `eval/results/operating_point.json`); diagnostic threshold 0.264 (pooled impostor FMR = 0.0001).
+Operating threshold 0.304 (from `eval/results/operating_point.json`); diagnostic threshold 0.263 (pooled impostor FMR = 0.0001).
 
 | Group | Identities | Genuine / impostor pairs | FMR @ operating | FMR @ diagnostic | FNMR @ operating | Impostor p99.9 / max |
 |---|---|---|---|---|---|---|
-| white | 2092 | 2820 / 2,187,186 | 1.3e-05 | 9.3e-05 [8.0e-05, 1.1e-04] | 0.35% [0.11%, 0.67%] | 0.205 / 1.000 |
-| black | 123 | 105 / 7,503 | 1.3e-04 | 5.3e-04 [1.3e-04, 1.1e-03] | 0.00% [0.00%, 0.00%] (0 errors, <= 2.9e-02) | 0.251 / 0.342 |
-| asian | 181 | 180 / 16,290 | 6.1e-05 | 8.6e-04 [4.7e-04, 1.3e-03] | 0.56% [0.00%, 1.84%] | 0.257 / 0.330 |
-| indian | 55 | 11 / 1,485 | 0.0e+00 (0 errors, <= 2.0e-03) | 0.0e+00 [0.0e+00, 0.0e+00] | 0.00% [0.00%, 0.00%] (0 errors, <= 2.7e-01) | 0.188 / 0.221 |
+| white | 2096 | 2831 / 2,195,560 | 1.7e-05 | 9.2e-05 [8.0e-05, 1.1e-04] | 0.39% [0.12%, 0.74%] | 0.206 / 1.000 |
+| black | 129 | 93 / 8,256 | 2.4e-04 | 7.3e-04 [2.3e-04, 1.3e-03] | 0.00% [0.00%, 0.00%] (0 errors, <= 3.2e-02) | 0.244 / 0.342 |
+| asian | 184 | 204 / 16,836 | 1.8e-04 | 8.3e-04 [4.3e-04, 1.3e-03] | 0.00% [0.00%, 0.00%] (0 errors, <= 1.5e-02) | 0.255 / 0.330 |
+| indian | 58 | 14 / 1,653 | 0.0e+00 (0 errors, <= 1.8e-03) | 0.0e+00 [0.0e+00, 0.0e+00] | 0.00% [0.00%, 0.00%] (0 errors, <= 2.1e-01) | 0.220 / 0.258 |
 
 | Gender | Identities | FMR @ operating | FMR @ diagnostic | FNMR @ operating |
 |---|---|---|---|---|
-| male | 2146 | 1.2e-05 | 8.7e-05 | 0.27% [0.00%, 0.64%] |
-| female | 714 | 4.3e-05 | 2.2e-04 | 0.55% [0.00%, 1.38%] |
+| male | 2147 | 1.7e-05 | 8.8e-05 | 0.19% [0.00%, 0.44%] |
+| female | 711 | 4.4e-05 | 2.1e-04 | 0.68% [0.12%, 1.37%] |
 
 Open-set (gallery 1000, test split), per probe group, at the operating threshold:
 
 | Group | Identities | Mated / non-mated probes | FNIR | FPIR |
 |---|---|---|---|---|
-| white | 1384 | 1358 / 1452 | 0.66% [0.27%, 1.12%] | 1.03% [0.54%, 1.61%] |
-| black | 70 | 47 / 68 | 0.00% [0.00%, 0.00%] | 0.00% [0.00%, 0.00%] |
-| asian | 106 | 79 / 125 | 1.27% [0.00%, 4.35%] | 1.60% [0.00%, 4.96%] |
-| indian | 34 | 8 / 29 | 0.00% [0.00%, 0.00%] | 0.00% [0.00%, 0.00%] |
-| unknown | 263 | 184 / 270 | 0.00% [0.00%, 0.00%] | 0.37% [0.00%, 1.19%] |
+| white | 1387 | 1298 / 1522 | 0.54% [0.08%, 1.07%] | 1.77% [1.03%, 2.60%] |
+| black | 76 | 30 / 88 | 0.00% [0.00%, 0.00%] | 0.00% [0.00%, 0.00%] |
+| asian | 108 | 98 / 121 | 0.00% [0.00%, 0.00%] | 4.13% [0.79%, 7.91%] |
+| indian | 34 | 8 / 32 | 0.00% [0.00%, 0.00%] | 0.00% [0.00%, 0.00%] |
+| unknown | 252 | 141 / 291 | 0.00% [0.00%, 0.00%] | 0.69% [0.00%, 1.78%] |
 
 Disparity (max/min across race groups):
 
-- FMR at the operating threshold: unbounded (indian has zero errors); among groups with errors: **10.05x** (black vs white), CI not estimable (errors too rare).
-- FMR at the diagnostic threshold: unbounded (indian has zero errors); among groups with errors: **9.26x** (asian vs white), 95% CI 5.49-14.76.
-- FNMR at the operating threshold: unbounded (black has zero errors); among groups with errors: **1.57x** (asian vs white), 95% CI 1.05-10.11.
+- FMR at the operating threshold: unbounded (indian has zero errors); among groups with errors: **14.00x** (black vs white), 95% CI 6.10-40.88.
+- FMR at the diagnostic threshold: unbounded (indian has zero errors); among groups with errors: **9.04x** (asian vs white), 95% CI 5.94-15.67.
+- FNMR at the operating threshold: unbounded (black has zero errors).
 
-**Indian group (deployment population):** only 55 identities, 11 genuine and 1,485 impostor pairs in the test split. Zero errors here means *not measurable*, not *no bias*: with this few pairs an FMR below 2.0e-03 cannot be distinguished from zero, and the impostor tail (p99.9 0.188) rests on the top 1 of 1,485 pairs. An Indian-specific evaluation set is required before deployment.
+**Indian group (deployment population):** only 58 identities, 14 genuine and 1,653 impostor pairs in the test split. Zero errors here means *not measurable*, not *no bias*: with this few pairs an FMR below 1.8e-03 cannot be distinguished from zero, and the impostor tail (p99.9 0.220) rests on the top 1 of 1,653 pairs. An Indian-specific evaluation set is required before deployment.
 
 ![FMR / FNMR by group](../eval/plots/bias_fmr_fnmr.png)
 
@@ -162,12 +171,12 @@ Highest non-mated open-set searches (test split, gallery 1000):
 | Probe identity | Rank-1 identity | Score |
 |---|---|---|
 | Ashley_Olsen | Mary-Kate_Olsen | 0.631 |
-| Talisa_Soto | Talisa_Bratt | 0.614 |
-| Angela_Merkel | Barbara_Walters | 0.358 |
-| Lord_Hutton | Jim_Tressel | 0.355 |
-| Lina_Krasnoroutskaya | Amanda_Beard | 0.350 |
+| Odai_Hussein | Uday_Hussein | 0.594 |
+| Sylvester_Stallone | Frank_Stallone | 0.406 |
+| Sylvester_Stallone | Frank_Stallone | 0.379 |
+| Barbara_Walters | Angela_Merkel | 0.358 |
 
-Highest impostor pairs among 4,117,015 test-split pairs (first image per identity):
+Highest impostor pairs among 4,122,756 test-split pairs (first image per identity):
 
 | Identity A | Identity B | Score |
 |---|---|---|
@@ -178,6 +187,54 @@ Highest impostor pairs among 4,117,015 test-split pairs (first image per identit
 | Odai_Hussein | Uday_Hussein | 0.594 |
 
 Reading the names in this run: Talisa Soto / Talisa Bratt, Doc Rivers / Glenn Rivers and Odai / Uday Hussein are the same people under two names; scores of 1.000 and 0.958 mean the same (or a nearly identical) photo is filed under two people; Ashley and Mary-Kate Olsen are identical twins, a true look-alike. Six duplicate names with matching tokens or obvious spelling variants were merged before any experiment (see `eval/config/openset.yaml`).
+
+## Age gap (missing people found years later)
+
+**FNMR at the production threshold rises from 2.6% (gap 0-2 years) to 45.4% (gap 21+ years); child enrolments degrade fastest (2.8% -> 59.2%) while adult enrolments stay at 2.7% even at 21+ years.**
+
+1:1 on FG-NET (ages 0-69, 82 subjects):
+  * genuine pairs: every within-subject pair; gap = |age_a - age_b| bucketed {0-2, 3-5, 6-10, 11-20, 21+}
+  * impostor pairs: for each genuine pair, `impostors_per_genuine` pairs of two different subjects
+    whose ages match the genuine pair (each within +-1 year when possible), so impostors have the
+    same age mix as the genuine pairs of the bucket
+  * FNMR at the production MATCH_THRESHOLD and TAR at FAR=1e-3 per bucket; pairs with an image
+    that failed to enrol count as non-matches (production behaviour)
+  * reported separately for child enrolment (younger photo < 18 years) and adult enrolment
+1:1 on CALFW (cross-age LFW, 6000 official pairs; no per-image ages): 10-fold accuracy, TAR@FAR=1e-3,
+  FNMR / FMR at the production threshold, next to the LFW numbers.
+Open-set on FG-NET: subjects are split (seeded) into gallery subjects and held-out non-mated subjects;
+  the gallery is the earliest enrolled photo of each gallery subject plus LFW single-image test
+  distractors; probes are the later photos. The FPIR = 1% threshold comes from the non-mated
+  probes (held-out FG-NET subjects + LFW non-mated test probes). Rank-1 and FNIR per age-gap bucket.
+CIs: 95% bootstrap over subjects.
+
+Production threshold 0.304. FG-NET failure to enrol: 0.0% (with the pad-and-retry detection step; single-pass detection failed on about half of these close-up portraits, see section 1).
+
+| Age gap | Genuine pairs | FNMR all [95% CI] | FNMR child enrolment | FNMR adult enrolment | TAR @ FAR 1e-3 | FMR (age-matched impostors) |
+|---|---|---|---|---|---|---|
+| 0-2 y | 855 | 2.6% [1.1%, 4.5%] | 2.8% [1.1%, 5.1%] | 1.4% [0.0%, 4.6%] | 92.6% | 1.44% |
+| 3-5 y | 1162 | 4.7% [2.9%, 7.1%] | 5.9% [3.4%, 8.6%] | 0.0% [0.0%, 0.0%] | 90.5% | 0.55% |
+| 6-10 y | 1480 | 12.9% [10.1%, 15.5%] | 15.9% [12.8%, 18.9%] | 0.0% [0.0%, 0.0%] | 81.6% | 0.20% |
+| 11-20 y | 1540 | 35.4% [29.9%, 40.7%] | 44.8% [38.8%, 50.4%] | 0.3% [0.0%, 1.0%] | 69.4% | 0.07% |
+| 21+ y | 771 | 45.4% [38.3%, 53.2%] | 59.2% [52.0%, 66.7%] | 2.7% [0.0%, 6.7%] | 59.1% | 0.04% |
+
+![FNMR by age gap](../eval/plots/age_gap_fnmr.png)
+
+Open-set on FG-NET (gallery: earliest photo of each of 62 subjects + 1015 LFW distractors; 2305 non-mated searches; FPIR 1% threshold 0.344; FPIR at the production threshold on this mix 2.60%):
+
+| Age gap | Probes | Rank-1 | FNIR @ FPIR 1% | FNIR @ production threshold |
+|---|---|---|---|---|
+| 0-2 y | 53 | 88.7% [79.2%, 96.4%] | 18.9% [9.1%, 30.4%] | 13.2% |
+| 3-5 y | 86 | 84.9% [76.5%, 92.6%] | 32.6% [21.3%, 45.6%] | 25.6% |
+| 6-10 y | 128 | 73.4% [63.3%, 82.7%] | 72.7% [61.0%, 81.3%] | 51.6% |
+| 11-20 y | 241 | 52.7% [42.2%, 62.3%] | 85.5% [78.4%, 92.1%] | 80.1% |
+| 21+ y | 181 | 33.1% [21.5%, 46.0%] | 85.6% [72.5%, 96.6%] | 84.0% |
+
+CALFW (cross-age LFW, 6000 official pairs, no per-image ages): accuracy 95.72% ± 1.09% vs 99.83% on LFW; TAR @ FAR 1e-3 91.17% vs 99.67%; at the production threshold FNMR 9.53%, FMR 0.067%.
+
+AgeDB-30: not available (licence request needed); loader in eval/datasets/restricted.py.
+
+Interpretation: the model is close to age-invariant for adults over these gaps, but not for children. A photo taken before 18 loses most of its value within about 10 years, which is exactly the missing-child case. Impostor pairs of very young children are also matched more often (higher FMR at small gaps), because young children look alike. FG-NET is small (82 subjects, scanned prints), so treat the shape of the curve as solid and the exact percentages as approximate.
 
 ## 7a. Robustness to image degradation
 
@@ -330,7 +387,7 @@ re-implementation github.com/wondervictor/WiderFace-Evaluation (MIT licence).
 
 CPU: 11th Gen Intel(R) Core(TM) i5-11260H @ 2.60GHz. Best Hard-subset AP: det_size 1024. **Recommended det_size: 640**: 1024 gains Hard AP on tiny crowd faces but fails on large close-up faces (LFW FTE 84%, eval/results/detsize_check.json); one detector serves both enrolment and sightings, so keep 640.
 
-det_size check on 400 LFW images: failure to enrol 0.5% at 640 vs 84.2% at 1024. Large faces scaled past the detector's range are missed. Recommendation for later: run detection at two scales (640 and 1024) and merge, so crowd photos get the Hard-subset gain without losing close-ups.
+det_size check on 400 LFW images: failure to enrol 0.0% at 640 vs 0.5% at 1024. Large faces scaled past the detector's range are missed. Recommendation for later: run detection at two scales (640 and 1024) and merge, so crowd photos get the Hard-subset gain without losing close-ups.
 
 ## 7d. Latency (CPU)
 

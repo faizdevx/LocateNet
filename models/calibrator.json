@@ -1,16 +1,16 @@
 {
   "type": "platt",
-  "a": 29.096385323202504,
-  "b": -13.173520824008788,
+  "a": 23.735411012600313,
+  "b": -11.144090898401501,
   "prior": 0.1,
   "input": "rank-1 cosine similarity (L2-normalised ArcFace embeddings)",
   "output": "estimated P(correct mated match) at the stated prior",
   "fitted_on": "LFW open-set tune split, gallery 1000",
   "test_metrics": {
-    "ece": 0.003697613357782679,
-    "brier": 0.002200435153931247
+    "ece": 0.006086003906759521,
+    "brier": 0.0023163522886663034
   },
   "model": "buffalo_l",
-  "git_commit": "3cc3fd3e00ff31cfe52b4405b2f1f6cbb7ab9273-dirty",
-  "timestamp": "2026-10-21T19:55:32+00:00"
+  "git_commit": "f13a1c7324e192f3e4fe30d2f0a818254e40dc87-dirty",
+  "timestamp": "2026-10-22T12:19:50+00:00"
 }
