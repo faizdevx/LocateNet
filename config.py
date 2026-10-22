@@ -70,6 +70,23 @@ TRACK_SPLIT_THRESHOLD = _env_float("TRACK_SPLIT_THRESHOLD", 0.1)
 # Every 5th frame: FNIR within noise of stride 3 at 40% less CPU; stride 10 loses clearly.
 VIDEO_FRAME_STRIDE = _env_int("VIDEO_FRAME_STRIDE", 5)
 
+# Human-feedback loop (Week 3), see docs/FEEDBACK_LOOP.md.
+# False-positive suppression: downgrade (never drop) an alert that looks more like a face the officer
+# already rejected for this case. Source: eval/results/neg_suppression.json (test: 11% of repeat
+# false alerts downgraded, 0 true alerts downgraded).
+ENABLE_NEG_SUPPRESSION = _env_bool("ENABLE_NEG_SUPPRESSION", True)
+NEG_SUPPRESS_THRESHOLD = _env_float("NEG_SUPPRESS_THRESHOLD", 0.6)
+# Confirmed sighting faces that may be added as extra reference photos per case (anti-poisoning cap).
+MAX_SIGHTING_TEMPLATES = _env_int("MAX_SIGHTING_TEMPLATES", 3)
+# Share of below-threshold faces sent to a "Random QA sample - not a match alert" review queue, so
+# the miss rate can be estimated from field data without selection bias.
+AUDIT_SAMPLE_RATE = _env_float("AUDIT_SAMPLE_RATE", 0.02)
+# Negative exemplars, QA samples and stored face embeddings are deleted after this many days
+# (scripts/purge_expired.py).
+RETENTION_DAYS = _env_int("RETENTION_DAYS", 90)
+# Field metrics are shown only with at least this many reviews per row.
+FIELD_MIN_N = _env_int("FIELD_MIN_N", 30)
+
 # Score calibration (eval/calibrate.py). The likelihood shown to officers is only valid at this
 # assumed share of searched faces that belong to an enrolled person; see services/calibration.py.
 CALIBRATOR_PATH = os.environ.get("LOCATENET_CALIBRATOR", os.path.join(BASE_DIR, "models", "calibrator.json"))

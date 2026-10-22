@@ -378,6 +378,31 @@ Interpretation: on CPU the video pipeline runs far slower than real time even at
 
 Mild-degradation run (`eval/results/video_mild.json`): every strategy reaches FNIR 0.0% with splitting; split threshold 0.25.
 
+## False-positive suppression (offline simulation)
+
+Setup: the Week 2 LFW open-set protocol at gallery 1000, searched at the production
+MATCH_THRESHOLD. Every probe of the split is replayed as a stream in a random order (20 seeded
+orders, results averaged). Each alert is "reviewed" with the ground truth: a non-mated alert is a
+false positive and its embedding becomes a negative exemplar of the case it hit (what an officer's
+false_positive click does). Before raising each new alert we apply
+services.feedback.suppression_decision with that case's exemplars so far.
+Benefit: share of false-positive alerts that are downgraded (repeat look-alikes).
+Cost: share of true alerts (mated, correct case) that are downgraded.
+NEG_SUPPRESS_THRESHOLD is chosen on the tune split as the strictest value with the largest benefit at zero
+cost; the test split reports both with Wilson 95% CIs. Ship only if the test cost is not larger
+than the CI half-width of the deployed FNIR (a downgraded true alert still reaches the officer,
+so this is a conservative bound).
+
+Production threshold 0.312; chosen NEG_SUPPRESS_THRESHOLD = **0.6**.
+
+| Split | False alerts per stream | Downgraded | True alerts per stream | Downgraded |
+|---|---|---|---|---|
+| test | 22 | 11.4% [2.5%, 27.8%] | 1568 | 0.00% [0.00%, 0.24%] |
+
+Ship rule: test cost (true alerts downgraded) <= CI half-width of deployed FNIR, and benefit > 0 (FNIR CI half-width 0.40%). Result: **shipped** (`ENABLE_NEG_SUPPRESSION`).
+
+Interpretation: on LFW most false alerts are one-off look-alikes, so only the repeats (the same stranger hitting the same case again) can be caught; in the field a regular at a railway station is exactly such a repeat. The downgraded alerts are still shown to the officer, labelled as similar to a rejected face. The numbers are small (about 20 false alerts per simulated stream), so the benefit has a wide CI.
+
 ## 7a. Robustness to image degradation
 
 Only PROBE images are degraded, at the image level BEFORE detection, so detection failures count.

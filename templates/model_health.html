@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Model health | LocateNet</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>body { background: #f5f7fb; } .chart { max-width: 100%; border: 1px solid #e3e6ec; border-radius: .375rem; background: #fff; }</style>
+</head>
+<body>
+{% macro rate_cell(r) -%}
+{% if r and r.enough %}{{ '%.1f'|format(100 * r.rate) }}% <span class="text-muted small">[{{ '%.1f'|format(100 * r.ci[0]) }}-{{ '%.1f'|format(100 * r.ci[1]) }}%], n={{ r.n }}</span>
+{%- elif r %}<span class="text-muted">insufficient data (n={{ r.n }} &lt; {{ min_n }})</span>
+{%- else %}<span class="text-muted">no data</span>{% endif %}
+{%- endmacro %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h2 class="mb-0">Model health</h2>
+            <div class="text-muted small">Built from officer reviews. Rates need at least {{ min_n }} reviews per row; intervals are Wilson 95%.
+                Only alerts above the threshold are reviewed, so misses are invisible here except through the random QA sample.</div>
+        </div>
+        <a href="/dashboard" class="btn btn-outline-secondary">Back to Dashboard</a>
+    </div>
+
+    {% with messages = get_flashed_messages() %}{% for m in messages %}<div class="alert alert-info">{{ m }}</div>{% endfor %}{% endwith %}
+
+    <div class="row g-3 mb-3">
+        <div class="col-md-4"><div class="card shadow-sm h-100"><div class="card-body">
+            <div class="text-muted small">Alert precision (all time)</div>
+            <div class="fs-5">{{ rate_cell(overall) }}</div>
+        </div></div></div>
+        <div class="col-md-4"><div class="card shadow-sm h-100"><div class="card-body">
+            <div class="text-muted small">Alerts per day (last {{ volume.days }} days) vs plan</div>
+            <div class="fs-5">{{ '%.1f'|format(volume.alerts_per_day) }}
+                {% if volume.predicted_false_alerts_per_day is not none %}<span class="text-muted small">expected false alerts/day at this load: {{ '%.1f'|format(volume.predicted_false_alerts_per_day) }}
+                (uploads/day {{ '%.1f'|format(volume.uploads_per_day) }}, faces/upload {{ '%.1f'|format(volume.faces_per_upload) }}; plan in OPERATING_POINT.md: {{ '%.1f'|format(volume.plan_false_alerts_per_day) }})</span>{% endif %}</div>
+        </div></div></div>
+        <div class="col-md-4"><div class="card shadow-sm h-100"><div class="card-body">
+            <div class="text-muted small">Review latency / backlog</div>
+            <div class="fs-5">{% if latency.n %}median {{ '%.1f'|format(latency.median) }} h, p90 {{ '%.1f'|format(latency.p90) }} h{% else %}no reviews yet{% endif %}</div>
+            <div class="small">{{ backlog }} alert faces waiting for review</div>
+        </div></div></div>
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-lg-6"><div class="card shadow-sm h-100"><div class="card-header fw-bold">Weekly precision</div><div class="card-body">
+            <img class="chart mb-2" src="/admin/model-health/chart/precision.png" alt="Weekly precision chart">
+            <table class="table table-sm small mb-0"><thead><tr><th>Week</th><th>Precision (confirmed / confirmed + false positive)</th></tr></thead><tbody>
+            {% for w, r in weekly.items() %}<tr><td>{{ w }}</td><td>{{ rate_cell(r) }}</td></tr>{% else %}<tr><td colspan="2" class="text-muted">no reviewed alerts yet</td></tr>{% endfor %}
+            </tbody></table>
+        </div></div></div>
+        <div class="col-lg-6"><div class="card shadow-sm h-100"><div class="card-header fw-bold">Precision and calibration by similarity</div><div class="card-body">
+            <img class="chart mb-2" src="/admin/model-health/chart/calibration.png" alt="Field calibration chart">
+            <table class="table table-sm small mb-0"><thead><tr><th>Similarity</th><th>Observed confirm rate</th><th>Mean predicted likelihood</th></tr></thead><tbody>
+            {% for b, r in by_bucket.items() %}<tr><td>{{ b }}</td><td>{{ rate_cell(r) }}</td><td>{% if r.mean_predicted is not none %}{{ '%.1f'|format(100 * r.mean_predicted) }}%{% else %}<span class="text-muted">-</span>{% endif %}</td></tr>
+            {% else %}<tr><td colspan="3" class="text-muted">no reviewed alerts yet</td></tr>{% endfor %}
+            </tbody></table>
+        </div></div></div>
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-lg-4"><div class="card shadow-sm h-100"><div class="card-header fw-bold">By source</div><div class="card-body">
+            <table class="table table-sm small mb-0">{% for k, r in by_source.items() %}<tr><td>{{ k }}</td><td>{{ rate_cell(r) }}</td></tr>{% else %}<tr><td class="text-muted">no data</td></tr>{% endfor %}</table>
+        </div></div></div>
+        <div class="col-lg-4"><div class="card shadow-sm h-100"><div class="card-header fw-bold">By face size</div><div class="card-body">
+            <table class="table table-sm small mb-0">{% for k, r in by_size.items() %}<tr><td>{{ k }}</td><td>{{ rate_cell(r) }}</td></tr>{% else %}<tr><td class="text-muted">no data</td></tr>{% endfor %}</table>
+        </div></div></div>
+        <div class="col-lg-4"><div class="card shadow-sm h-100"><div class="card-header fw-bold">Random QA sample (below threshold)</div><div class="card-body small">
+            <div>Share of sampled below-threshold faces that officers confirmed as the case (an estimate of the miss rate):</div>
+            <div class="fs-6 mt-1">{{ rate_cell(qa) }}</div>
+            <div class="text-muted mt-1">Sampling rate {{ '%.1f'|format(100 * audit_rate) }}% of below-threshold faces.</div>
+        </div></div></div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-header fw-bold">Calibration proposals</div>
+        <div class="card-body small">
+            <div class="text-muted mb-2">Created by <code>python scripts/propose_recalibration.py</code>. Approving swaps <code>models/calibrator.json</code> and keeps the previous file for rollback.</div>
+            <table class="table table-sm mb-0"><thead><tr><th>Proposal</th><th>Reviewed alerts</th><th>Current (Brier / ECE)</th><th>Proposed, 5-fold CV (Brier / ECE)</th><th>Status</th><th></th></tr></thead><tbody>
+            {% for p in proposals %}
+            <tr><td>{{ p.name }}</td><td>{{ p.n_reviewed }} ({{ p.n_confirmed }} / {{ p.n_false_positive }})</td>
+                <td>{% if p.metrics.current_on_field_data %}{{ '%.4f'|format(p.metrics.current_on_field_data.brier) }} / {{ '%.4f'|format(p.metrics.current_on_field_data.ece) }}{% else %}-{% endif %}</td>
+                <td>{{ '%.4f'|format(p.metrics.proposed_cross_validated.brier) }} / {{ '%.4f'|format(p.metrics.proposed_cross_validated.ece) }}</td>
+                <td>{{ p.status }}{% if p.decided_by %} by {{ p.decided_by }} on {{ p.decided_at }}{% endif %}</td>
+                <td>{% if p.status == 'pending' %}
+                    <form method="post" action="/admin/model-health/proposal/{{ p.name }}" class="d-inline">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button name="decision" value="approve" class="btn btn-sm btn-success" onclick="return confirm('Replace the live calibrator with this proposal?')">Approve</button>
+                        <button name="decision" value="reject" class="btn btn-sm btn-outline-danger">Reject</button>
+                    </form>{% endif %}</td></tr>
+            {% else %}<tr><td colspan="6" class="text-muted">no proposals</td></tr>{% endfor %}
+            </tbody></table>
+        </div>
+    </div>
+</div>
+</body>
+</html>

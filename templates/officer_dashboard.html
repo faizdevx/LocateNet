@@ -46,6 +46,22 @@
       {% endif %}
     {% endwith %}
     
+    {% if qa_queue %}
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-light fw-bold">Random QA sample – not a match alert ({{ qa_queue|length }})</div>
+        <div class="card-body small">
+            <div class="text-muted mb-2">These faces scored below the match threshold. A few are sampled at random so we can measure how
+                often the system misses a person. Please check whether the face is the person of the named case.</div>
+            {% for q in qa_queue %}
+            <div class="d-flex justify-content-between border-bottom py-1">
+                <span>Nearest case: <strong>{{ q.person_name }}</strong> · similarity {{ '%.2f'|format(q.similarity or 0) }}</span>
+                <a href="/sighting/{{ q.sighting_id }}" class="btn btn-sm btn-outline-primary">Review</a>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
     {% if alerts %}
     <div class="card shadow-sm border-0 mb-4">
         <div class="card-header bg-warning text-dark fw-bold d-flex justify-content-between align-items-center">

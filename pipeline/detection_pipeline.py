@@ -51,6 +51,7 @@ class DetectionPipeline:
             results.append({
                 **match,
                 "face_crop_path": f"resources/{crop_filename}",
+                "det_score": float(getattr(face, "det_score", 0.0)),
                 "bbox": [int(x1), int(y1), int(x2), int(y2)],
                 "embedding": embedding.tolist()
             })

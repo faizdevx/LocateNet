@@ -3,7 +3,7 @@ import config
 import cv2
 import numpy as np
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from contextlib import contextmanager
 
 # --- DB CONFIG ---
@@ -99,7 +99,10 @@ def create_db():
                 cursor.execute(f"ALTER TABLE sighting_faces ADD COLUMN {col} REAL")
         # Week 3: video tracks (time span, frames used, representative crops as a JSON list)
         for col, kind in (("track_start_s", "REAL"), ("track_end_s", "REAL"), ("n_frames", "INTEGER"),
-                          ("extra_crops", "TEXT"), ("source_type", "TEXT")):
+                          ("extra_crops", "TEXT"), ("source_type", "TEXT"),
+                          # feedback loop: face embedding (purged after RETENTION_DAYS), quality, nearest case
+                          ("embedding", "TEXT"), ("det_score", "REAL"), ("face_px", "REAL"),
+                          ("candidate_id", "INTEGER"), ("qa_sample", "INTEGER DEFAULT 0"), ("suppressed", "INTEGER DEFAULT 0")):
             if col not in sighting_face_columns:
                 cursor.execute(f"ALTER TABLE sighting_faces ADD COLUMN {col} {kind}")
         match_columns = [row[1] for row in cursor.execute("PRAGMA table_info(matches)").fetchall()]
@@ -146,6 +149,16 @@ def create_db():
                 case_id INTEGER,
                 target_id INTEGER,
                 details TEXT
+            )""")
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS negative_exemplars (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                case_id INTEGER NOT NULL,
+                sighting_face_id INTEGER,
+                embedding TEXT NOT NULL,
+                created_by TEXT,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY(case_id) REFERENCES cases(id)
             )""")
         case_columns = [row[1] for row in cursor.execute("PRAGMA table_info(cases)").fetchall()]
         for col, kind in (("dob", "TEXT"), ("age_reported", "REAL"), ("age_reported_on", "TEXT")):
@@ -254,6 +267,57 @@ def active_template_rows():
     return [dict(r) for r in rows]
 
 
+def add_negative_exemplar(case_id, sighting_face_id, embedding, created_by):
+    with get_db_connection() as conn:
+        conn.execute("INSERT INTO negative_exemplars (case_id, sighting_face_id, embedding, created_by, created_at) "
+                     "VALUES (?, ?, ?, ?, ?)", (case_id, sighting_face_id, json.dumps([float(x) for x in embedding]),
+                                                created_by, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+        conn.commit()
+
+
+def get_negative_exemplars(case_id):
+    with get_db_connection() as conn:
+        rows = conn.execute("SELECT embedding FROM negative_exemplars WHERE case_id = ?", (case_id,)).fetchall()
+    return [np.asarray(json.loads(r["embedding"]), dtype="float32") for r in rows]
+
+
+def count_sighting_templates(case_id):
+    with get_db_connection() as conn:
+        return conn.execute("SELECT COUNT(*) FROM case_embeddings WHERE case_id = ? AND active = 1 "
+                            "AND source = 'confirmed_sighting'", (case_id,)).fetchone()[0]
+
+
+def alert_face_rows():
+    """Every alerting face (and every QA sample) with its latest review, for the model-health page."""
+    with get_db_connection() as conn:
+        rows = conn.execute("""
+            SELECT sf.id, CASE WHEN sf.qa_sample = 1 THEN sf.candidate_id ELSE sf.match_id END AS case_id,
+                   sf.similarity, sf.calibrated_likelihood, sf.category, sf.review_decision, sf.reviewed_by,
+                   sf.review_timestamp, sf.created_at, COALESCE(sf.source_type, 'image') AS source_type, sf.face_px,
+                   sf.qa_sample, sf.suppressed, sf.embedding
+            FROM sighting_faces sf
+            WHERE (sf.match_id IS NOT NULL AND sf.match_id != -1) OR sf.qa_sample = 1
+            ORDER BY sf.id
+        """).fetchall()
+    return [dict(r) for r in rows]
+
+
+def reviewed_alert_rows(include_qa=False):
+    """Alert faces with a confirm_match / false_positive decision (optionally also reviewed QA samples)."""
+    return [r for r in alert_face_rows()
+            if r["review_decision"] in ("confirm_match", "false_positive") and (include_qa or not r["qa_sample"])]
+
+
+def daily_volume(days=30):
+    since = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d %H:%M:%S")
+    with get_db_connection() as conn:
+        alerts = conn.execute("SELECT COUNT(*) FROM matches WHERE date_detected >= ?", (since,)).fetchone()[0]
+        uploads = conn.execute("SELECT COUNT(*) FROM public_submissions WHERE date_submitted >= ?", (since,)).fetchone()[0]
+        faces = conn.execute("SELECT COUNT(*) FROM sighting_faces WHERE created_at >= ?", (since,)).fetchone()[0]
+    return {"days": days, "alerts_per_day": alerts / days, "uploads_per_day": uploads / days,
+            "faces_per_upload": faces / uploads if uploads else 0.0}
+
+
 def log_audit(actor, action, case_id=None, target_id=None, details=None):
     with get_db_connection() as conn:
         conn.execute("INSERT INTO audit_log (ts, actor, action, case_id, target_id, details) VALUES (?, ?, ?, ?, ?, ?)",
@@ -298,8 +362,9 @@ class db_queries:
             conn.execute("""
                 INSERT INTO sighting_faces (sighting_id, face_crop_path, match_id, percentage, category, bbox, created_at,
                                             similarity, calibrated_likelihood, likelihood_prior,
-                                            track_start_s, track_end_s, n_frames, extra_crops, source_type)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                            track_start_s, track_end_s, n_frames, extra_crops, source_type,
+                                            embedding, det_score, face_px, candidate_id, qa_sample, suppressed)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 face_data["sighting_id"],
                 face_data["face_crop_path"],
@@ -316,6 +381,12 @@ class db_queries:
                 int(face_data["n_frames"]) if face_data.get("n_frames") is not None else None,
                 json.dumps(face_data["extra_crops"]) if face_data.get("extra_crops") else None,
                 face_data.get("source_type") or ("video" if face_data.get("n_frames") is not None else "image"),
+                json.dumps([float(x) for x in face_data["embedding"]]) if face_data.get("embedding") is not None and len(face_data["embedding"]) else None,
+                opt_float("det_score"),
+                opt_float("face_px"),
+                int(face_data["candidate_id"]) if face_data.get("candidate_id") not in (None, -1) else None,
+                1 if face_data.get("qa_sample") else 0,
+                1 if face_data.get("suppressed") else 0,
             ))
             conn.commit()
 
@@ -336,9 +407,10 @@ class db_queries:
     def get_sighting_faces(sighting_id):
         with get_db_connection() as conn:
             rows = conn.execute("""
-                SELECT sf.*, c.person_name AS matched_person_name
+                SELECT sf.*, c.person_name AS matched_person_name, qc.person_name AS candidate_person_name
                 FROM sighting_faces sf
                 LEFT JOIN cases c ON sf.match_id = c.id
+                LEFT JOIN cases qc ON sf.candidate_id = qc.id
                 WHERE sf.sighting_id = ?
                 ORDER BY sf.id ASC
             """, (sighting_id,)).fetchall()
@@ -382,14 +454,23 @@ class db_queries:
 
     @staticmethod
     def get_sighting_face_owner(sighting_face_id):
-        """Return the face row plus the officer who owns the matched case (None if unmatched)."""
+        """The face row plus the officer of the matched case; for a random QA sample, the officer of the
+        nearest case it was sampled for. officer is None for unmatched faces (Admin only)."""
         with get_db_connection() as conn:
             return conn.execute("""
-                SELECT sf.id, sf.sighting_id, sf.match_id, c.officer
+                SELECT sf.id, sf.sighting_id, sf.match_id, sf.qa_sample, sf.candidate_id,
+                       COALESCE(c.officer, CASE WHEN sf.qa_sample = 1 THEN qc.officer END) AS officer
                 FROM sighting_faces sf
                 LEFT JOIN cases c ON sf.match_id = c.id
+                LEFT JOIN cases qc ON sf.candidate_id = qc.id
                 WHERE sf.id = ?
             """, (sighting_face_id,)).fetchone()
+
+    @staticmethod
+    def get_sighting_face(sighting_face_id):
+        with get_db_connection() as conn:
+            row = conn.execute("SELECT * FROM sighting_faces WHERE id = ?", (sighting_face_id,)).fetchone()
+        return dict(row) if row else None
 
     @staticmethod
     def get_sighting_face_reviews(sighting_id):

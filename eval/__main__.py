@@ -26,6 +26,7 @@ EXPERIMENTS = {
     "multi_template": "eval.protocols.multi_template",
     "age_mitigation": "eval.protocols.age_mitigation",
     "video": "eval.protocols.video",
+    "neg_suppression": "eval.protocols.neg_suppression",
     "smoke": "eval.protocols.smoke",
 }
 

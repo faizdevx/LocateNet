@@ -34,7 +34,10 @@ logging.basicConfig(
 import config
 from models import *
 from services.alert_service import AlertService, normalize_location
-from services import age_risk, ages, photo_quality
+import random
+
+from services import age_risk, ages, field_metrics, photo_quality, recalibration
+from services.feedback import DOWNGRADED_CATEGORY, suppression_decision, template_growth_check
 from services.calibration import Calibrator
 from services.face_service import FaceService
 from services.template_matcher import TemplateMatcher
@@ -437,6 +440,18 @@ def report_sighting():
 
             for face_data in results:
                 face_data["calibrated_likelihood"] = estimate_likelihood(face_data.get("similarity"))
+                # False-positive suppression: downgrade (never drop) alerts that look like a face the
+                # officer already rejected for this case.
+                face_data["suppressed"] = False
+                if config.ENABLE_NEG_SUPPRESSION and face_data["id"] != -1 and face_data.get("embedding") is not None:
+                    down, _ = suppression_decision(face_data["embedding"], face_data["similarity"],
+                                                   get_negative_exemplars(face_data["id"]), config.NEG_SUPPRESS_THRESHOLD)
+                    if down:
+                        face_data["category"], face_data["suppressed"] = DOWNGRADED_CATEGORY, True
+                # Random QA sample of below-threshold faces (unbiased miss-rate estimate over time)
+                face_data["qa_sample"] = (face_data["id"] == -1 and face_data.get("candidate_id", -1) != -1
+                                          and random.random() < config.AUDIT_SAMPLE_RATE)
+                bbox = face_data.get("bbox")
                 db_queries.save_sighting_face({
                     "sighting_id": unique_id,
                     "face_crop_path": face_data.get("face_crop_path") or f"resources/{filename}",
@@ -451,6 +466,12 @@ def report_sighting():
                     "track_start_s": face_data.get("track_start_s"),
                     "track_end_s": face_data.get("track_end_s"),
                     "n_frames": face_data.get("n_frames"),
+                    "embedding": face_data.get("embedding"),
+                    "det_score": face_data.get("det_score"),
+                    "face_px": float(bbox[2] - bbox[0]) if bbox is not None else None,
+                    "candidate_id": face_data.get("candidate_id"),
+                    "qa_sample": face_data["qa_sample"],
+                    "suppressed": face_data["suppressed"],
                 })
                 faces_detected_count += 1
 
@@ -562,10 +583,17 @@ def dashboard():
         """, (user,)).fetchall()
 
     alerts = [dict(a, age_warning=case_age_warning(get_case_by_id(a["case_id"]))) for a in alerts]
+    with get_db_connection() as conn:
+        qa_queue = [dict(r) for r in conn.execute("""
+            SELECT sf.id, sf.sighting_id, sf.similarity, c.person_name
+            FROM sighting_faces sf JOIN cases c ON c.id = sf.candidate_id
+            WHERE sf.qa_sample = 1 AND sf.review_decision IS NULL AND (c.officer = ? OR ? = 'Admin')
+            ORDER BY sf.id DESC LIMIT 20
+        """, (user, role)).fetchall()]
 
     if role == "Admin":
         cases = get_all_cases_admin()
-        return render_template("admin_dashboard.html", alerts=alerts, 
+        return render_template("admin_dashboard.html", alerts=alerts, qa_queue=qa_queue, 
                                found=get_total_count("F"), not_found=get_total_count("NF"), 
                                user=user, cases=cases, map=map_html)
     
@@ -573,7 +601,7 @@ def dashboard():
     found_count = len([c for c in cases if c['status'] == 'F'])
     not_found_count = len([c for c in cases if c['status'] == 'NF'])
     
-    return render_template("officer_dashboard.html", alerts=alerts,
+    return render_template("officer_dashboard.html", alerts=alerts, qa_queue=qa_queue,
                            found=found_count, not_found=not_found_count, 
                            user=user, cases=cases, map=map_html)
 
@@ -639,7 +667,38 @@ def review_sighting_face(sighting_id, face_id):
         return redirect(url_for("dashboard"))
 
     flash(f"Review saved: {decision.replace('_', ' ').title()}.")
+    face = db_queries.get_sighting_face(face_id)
+    matched_case = face["match_id"] if face and face["match_id"] not in (None, -1) else None
+    if decision == "false_positive" and matched_case and face.get("embedding"):
+        add_negative_exemplar(matched_case, face_id, json.loads(face["embedding"]), session["user"])
+        log_audit(session["user"], "negative_exemplar_added", matched_case, face_id)
+    if decision == "confirm_match" and matched_case and request.form.get("add_as_template") == "1":
+        add_confirmed_face_as_template(face, get_case_by_id(matched_case))
     return redirect(url_for("sighting_detail", sighting_id=reviewed_sighting_id))
+
+
+def add_confirmed_face_as_template(face, case):
+    """Template growth with the anti-poisoning guards of services/feedback.py."""
+    enrolment = [json.loads(r["embedding"]) for r in get_case_embeddings(case["id"], active_only=True)
+                 if r["source"] == "enrolment"]
+    ok, reason = template_growth_check(
+        is_owner_or_admin=can_manage_case(case), n_existing_sighting_templates=count_sighting_templates(case["id"]),
+        max_sighting_templates=config.MAX_SIGHTING_TEMPLATES, face_px=face.get("face_px"),
+        det_score=face.get("det_score"), det_score_min=config.DET_SCORE_MIN, min_face_px=config.MIN_ENROL_FACE_PX,
+        embedding=json.loads(face["embedding"]) if face.get("embedding") else None, enrolment_embeddings=enrolment,
+        match_threshold=config.MATCH_THRESHOLD)
+    if not ok:
+        flash(f"Not added as a reference photo: {reason}.")
+        return False
+    record = {"image_path": face["face_crop_path"], "embedding": json.loads(face["embedding"]),
+              "det_score": face.get("det_score"), "face_px": face.get("face_px"),
+              "quality_score": photo_quality.quality_score(face.get("det_score") or 0, face.get("face_px") or 0,
+                                                           photo_quality.REFERENCE_SHARPNESS),
+              "photo_date": (face.get("created_at") or "")[:10] or None}
+    [emb_id] = enrol_reference_photos(case, [record], source="confirmed_sighting")
+    log_audit(session["user"], "photo_added", case["id"], emb_id, {"source": "confirmed_sighting", "sighting_face": face["id"]})
+    flash("Face added as a reference photo (source: confirmed sighting). You can deactivate it on the case page.")
+    return True
 
 @app.route("/register_case", methods=["GET", "POST"])
 @login_required
@@ -820,6 +879,122 @@ def create_officer():
             flash("Username already exists. Choose another.", "danger")
 
     return render_template("create_officer.html")
+
+
+def _model_health_context():
+    rows = alert_face_rows()
+    alerts = [r for r in rows if not r["qa_sample"]]
+    qa = [r for r in rows if r["qa_sample"]]
+    min_n = config.FIELD_MIN_N
+    reviewed = [r for r in alerts if r["review_decision"] in ("confirm_match", "false_positive")]
+    edges = sorted({config.MATCH_THRESHOLD, 0.4, 0.5, config.HIGH_CONF_THRESHOLD, 1.01})
+    volume = daily_volume(30)
+    plan_fp, test_fpir = None, None
+    try:
+        with open(os.path.join(BASE_DIR, "eval", "results", "operating_point.json")) as f:
+            op = json.load(f)
+        test_fpir = op["previous_test_stats"]["MATCH_THRESHOLD"]["fpir"]
+        plan_fp = op["uploads_per_day"] * op["faces_per_upload"] * test_fpir
+    except (OSError, KeyError, ValueError):
+        pass
+    volume["predicted_false_alerts_per_day"] = (volume["uploads_per_day"] * volume["faces_per_upload"] * test_fpir
+                                                if test_fpir is not None else None)
+    volume["plan_false_alerts_per_day"] = plan_fp
+    med, p90, n = field_metrics.review_latency_hours(reviewed)
+    qa_reviewed = [r for r in qa if r["review_decision"] in ("confirm_match", "false_positive")]
+    return {
+        "min_n": min_n,
+        "overall": field_metrics.rate(sum(r["review_decision"] == "confirm_match" for r in reviewed), len(reviewed), min_n),
+        "weekly": field_metrics.weekly_precision(reviewed, min_n),
+        "by_bucket": field_metrics.calibration_by_bucket(reviewed, edges, min_n),
+        "by_source": field_metrics.precision_by(reviewed, lambda r: r["source_type"], min_n),
+        "by_size": field_metrics.precision_by(reviewed, lambda r: field_metrics.face_size_bucket(r["face_px"]), min_n),
+        "volume": volume, "latency": {"median": med, "p90": p90, "n": n},
+        "backlog": sum(1 for r in alerts if not r["review_decision"]),
+        "qa": field_metrics.rate(sum(r["review_decision"] == "confirm_match" for r in qa_reviewed), len(qa_reviewed), min_n),
+        "audit_rate": config.AUDIT_SAMPLE_RATE, "proposals": recalibration.list_proposals(BASE_DIR),
+    }
+
+
+def admin_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if session.get("role") != "Admin":
+            abort(403)
+        return f(*args, **kwargs)
+    return login_required(decorated)
+
+
+@app.route("/admin/model-health")
+@admin_required
+def model_health():
+    return render_template("model_health.html", **_model_health_context())
+
+
+@app.route("/admin/model-health/chart/<name>.png")
+@admin_required
+def model_health_chart(name):
+    import io as _io
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    ctx = _model_health_context()
+    fig, ax = plt.subplots(figsize=(6, 2.8))
+    if name == "precision":
+        items = [(k, v) for k, v in ctx["weekly"].items() if v["enough"]]
+        if items:
+            xs = range(len(items))
+            vals = [v["rate"] for _, v in items]
+            ax.errorbar(xs, vals, yerr=[[v - r["ci"][0] for v, (_, r) in zip(vals, items)],
+                                        [r["ci"][1] - v for v, (_, r) in zip(vals, items)]], marker="o", capsize=3)
+            ax.set_xticks(list(xs), [k for k, _ in items], rotation=45, fontsize=7)
+        ax.set_ylim(0, 1)
+        ax.set_ylabel("precision")
+        ax.set_title("Weekly alert precision (weeks with n >= %d)" % ctx["min_n"], fontsize=9)
+    elif name == "calibration":
+        items = [(k, v) for k, v in ctx["by_bucket"].items() if v["enough"] and v["mean_predicted"] is not None]
+        ax.plot([0, 1], [0, 1], "k--", lw=1)
+        for k, v in items:
+            ax.errorbar([v["mean_predicted"]], [v["rate"]], yerr=[[v["rate"] - v["ci"][0]], [v["ci"][1] - v["rate"]]],
+                        marker="o", capsize=3, label=k)
+        ax.set_xlim(0, 1)
+        ax.set_ylim(0, 1)
+        ax.set_xlabel("mean predicted likelihood")
+        ax.set_ylabel("observed confirm rate")
+        ax.set_title("Field calibration by similarity bucket", fontsize=9)
+        if items:
+            ax.legend(fontsize=7)
+    else:
+        abort(404)
+    if not ax.has_data():
+        ax.text(0.5, 0.5, "insufficient data", ha="center", va="center", transform=ax.transAxes, color="grey")
+    fig.tight_layout()
+    buf = _io.BytesIO()
+    fig.savefig(buf, format="png", dpi=110)
+    plt.close(fig)
+    return app.response_class(buf.getvalue(), mimetype="image/png")
+
+
+@app.route("/admin/model-health/proposal/<name>", methods=["POST"])
+@admin_required
+def decide_proposal(name):
+    global calibrator
+    decision = request.form.get("decision")
+    if decision not in ("approve", "reject"):
+        abort(400)
+    try:
+        recalibration.decide(BASE_DIR, name, decision == "approve", session["user"], config.CALIBRATOR_PATH)
+    except (ValueError, OSError):
+        logging.exception("Proposal %s could not be decided", name)
+        flash("This proposal cannot be decided (not found or not pending).")
+        return redirect(url_for("model_health"))
+    log_audit(session["user"], f"calibration_proposal_{decision}d", details={"proposal": name})
+    if decision == "approve":
+        calibrator = load_calibrator(config.CALIBRATOR_PATH)
+        flash("Proposal approved: the new calibrator is live; the previous one was kept for rollback.")
+    else:
+        flash("Proposal rejected.")
+    return redirect(url_for("model_health"))
 
 
 @app.route("/admin/logs")

@@ -36,11 +36,21 @@ def select_match(scores, ids, is_active=None):
     return -1, best_active
 
 
+def nearest_active(scores, ids, is_active=None):
+    """Rank-1 active case regardless of the threshold (used to route random QA samples), or -1."""
+    for score, case_id in zip(scores, ids):
+        case_id = int(case_id)
+        if case_id != -1 and (is_active is None or is_active(case_id)):
+            return case_id
+    return -1
+
+
 def match_fields(scores, ids, is_active=None):
     """Shared match output used by both the image and the video pipeline."""
     case_id, similarity = select_match(scores, ids, is_active)
     return {
         "id": case_id,
+        "candidate_id": nearest_active(scores, ids, is_active),
         "label": f"Person_{case_id}" if case_id != -1 else "Unknown",
         "similarity": similarity,
         "percentage": round(similarity * 100, 2),
