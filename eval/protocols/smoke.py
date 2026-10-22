@@ -53,8 +53,33 @@ def synthetic_images(root, cfg):
 
 
 def extra_smoke_metrics(cfg):
-    """Hook for later tasks: deterministic metrics of new components on synthetic data."""
-    return {}
+    """Deterministic metrics of the Week 3 components on synthetic vectors (no models)."""
+    from services.feedback import suppression_decision
+    from services.template_matcher import STRATEGIES, TemplateMatcher
+    from services.track_aggregator import Observation, aggregate, split_track
+    rng = np.random.default_rng(cfg["seed"])
+    centres = rng.normal(size=(8, 64))
+    rows, vid = [], 1
+    for case, c in enumerate(centres):
+        for _ in range(3):
+            rows.append((vid, case + 1, c + 0.5 * rng.normal(size=64), float(rng.uniform(0.3, 1.0)), None))
+            vid += 1
+    probes = [(case + 1, c + 0.5 * rng.normal(size=64)) for case, c in enumerate(centres)]
+    out = {}
+    for strat in STRATEGIES:
+        m = TemplateMatcher.from_rows(rows, strategy=strat)
+        hits = 0
+        for case, p in probes:
+            _, ids = m.rank(p, top_k=1)
+            hits += int(len(ids) and ids[0] == case)
+        out[f"template_{strat}_rank1"] = hits / len(probes)
+    track = [Observation(k, centres[0] + 0.2 * rng.normal(size=64), 0.9, 80, 300) for k in range(6)]
+    track += [Observation(k, centres[1] + 0.2 * rng.normal(size=64), 0.9, 80, 300) for k in range(6, 12)]
+    out["track_segments"] = float(len(split_track(track, 0.3)))
+    out["track_qwm_first_dim"] = float(aggregate(track[:6], "quality_weighted_mean")[0][0])
+    down, neg = suppression_decision(centres[2], 0.2, [centres[2] + 0.01], 0.6)
+    out["suppression_downgrade"] = float(down)
+    return out
 
 
 def run(cfg):

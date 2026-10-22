@@ -63,6 +63,15 @@ def headline(R):
         last = list(ch)[-1]
         rows.append((f"FNMR, child enrolment vs {list(ch)[0]} y / {last} y age gap (FG-NET)",
                      f"{pct(ch[list(ch)[0]]['fnmr'], 1)} / {pct(ch[last]['fnmr'], 1)} {ci(ch[last]['fnmr_ci'], 1)}"))
+    vid = R.get("video")
+    if vid:
+        st = vid["strategies"]
+        rows.append(("Video aggregation vs best frame (SYNTHETIC tracks): FNIR / FAISS searches",
+                     f"{pct(st['quality_weighted_mean']['split']['test_fnir'], 1)} vs {pct(st['best_frame']['split']['test_fnir'], 1)}; "
+                     f"{st['quality_weighted_mean']['split']['faiss_calls_test']} vs {st['best_frame']['split']['faiss_calls_test']} "
+                     f"searches (no accuracy gain; ID-switch split cuts misses on glued tracks from "
+                     f"{pct(st['quality_weighted_mean']['no_split']['contaminated_tracks']['test_fnir'], 0)} to "
+                     f"{pct(st['quality_weighted_mean']['split']['contaminated_tracks']['test_fnir'], 0)})"))
     if r:
         w = r["minimum_usable_face_width"]["width_px"]
         rows.append(("Minimum usable face width", "n/a" if w is None else f"{w} px"))
@@ -607,8 +616,9 @@ THREATS = """## Threats to validity
   IR, or compression artefacts of real video pipelines.
 - **Demographic labels are noisy** (classifier scores, not self-reported), the groups are unbalanced,
   and the Indian group, which is the deployment population, has very little data.
-- **No children and no large age gaps.** Missing-person cases often involve children and photos taken
-  years apart. Neither is covered yet (Week 3).
+- **Small age-gap data.** FG-NET has 82 subjects and scanned prints; CALFW has no per-image ages. The
+  shape of the age-gap curve is solid, the exact percentages are not. AgeDB/CACD would tighten them.
+- **Video results are synthetic.** Degraded LFW stills stand in for CCTV tracks (YouTube Faces needs a request).
 - **One reference photo per case** is assumed. Several reference photos per case would change the
   numbers (usually for the better).
 - **Small non-mated sets.** FPIR = 0.1% rests on a handful of errors; the bootstrap CIs show this.
@@ -706,7 +716,7 @@ def build_model_card(R, meta):
         "- Surveillance, tracking or profiling of people who are not missing.",
         "- Automated decisions of any kind (arrest, detention, denial of services) without human review.",
         "- Identifying protesters, journalists, or members of any group; scanning crowds for watch lists.",
-        "- Any use on children or across large age gaps until those are evaluated (Week 3).",
+        "- Relying on a single childhood photo to find a teenager or adult years later (see Age and children).",
         "- Commercial use (the buffalo_l weights are licensed for non-commercial research).", "",
         "## Factors", "",
         "- **Relevant factors:** face size in pixels, blur, compression, lighting, occlusion (masks), pose, age, and "
@@ -728,12 +738,36 @@ def build_model_card(R, meta):
         "bias fallback. Split by identity into tune / test halves.",
         "- **LFW attributes** (Kumar et al.) for demographic groups (fallback for RFW).",
         "- **WIDER FACE val** (3,226 images, 39,708 faces) for crowd detection.",
-        "- **Not yet:** RFW (licence pending), CCTV footage, Indian-population data, children, age-gap data.", "",
+        "- **FG-NET** (1,002 photos, 82 subjects aged 0-69) and **CALFW** (6,000 cross-age pairs) for age gaps.",
+        "- **Not yet:** RFW, AgeDB-30, YouTube Faces (licence or request pending), real CCTV footage, Indian-population data.", "",
         "## Training data", "",
         "Not trained or fine-tuned by this project. The recognition model was trained by InsightFace on WebFace600K; "
         "its demographic composition is not documented in detail by the authors.", "",
         "## Quantitative analyses", "",
         headline(R), "",
+        "## Age and children", "",
+    ]
+    ag = R.get("age_gap")
+    if ag:
+        ch, ad = ag["fgnet_1to1"]["child_enrolment"], ag["fgnet_1to1"]["adult_enrolment"]
+        last = list(ch)[-1]
+        lines += [f"- {ag['headline']} (FG-NET, {ag['fgnet_n_images']} images of 82 subjects).",
+                  f"- **Child-enrolment caveat:** a reference photo taken before age 18 misses the person "
+                  f"{pct(ch[last]['fnmr'], 0)} of the time once the photo is {last} years old (adult photos: "
+                  f"{pct(ad[last]['fnmr'], 0)}). Very young children also produce more false matches with each other.",
+                  "- Mitigations in the app: several reference photos per case (multi-photo templates), guidance to add "
+                  "the most recent photo, and an age-gap warning with the measured miss rate on the case page and on "
+                  "alerts. A learned age-robust adapter was not attempted (no CACD).", ""]
+    lines += [
+        "## Feedback-loop governance", "",
+        "- Officer reviews feed field metrics on `/admin/model-health` (shown only with n >= 30, Wilson CIs).",
+        "- Confirmed faces become extra reference photos only on request and behind guards (owner/Admin, cap of 3 "
+        "per case, quality gate, similarity to the enrolled photos); every addition is audit-logged and removable.",
+        "- Rejected faces become negative exemplars that downgrade (never drop) repeat look-alike alerts.",
+        "- Calibration changes are proposals that an Admin must approve; the previous calibrator is kept for rollback. "
+        "Thresholds are never changed automatically.",
+        "- Field data is selection-biased (only alerts are reviewed); a 2% random QA sample of below-threshold faces "
+        "estimates misses. Feedback data is deleted after 90 days. See [FEEDBACK_LOOP.md](FEEDBACK_LOOP.md).", "",
         "## Ethical considerations", "",
     ]
     if b:
@@ -757,7 +791,8 @@ def build_model_card(R, meta):
         "## Caveats and recommendations", "",
         "- LFW is easier than real sightings; expect higher miss rates in deployment.",
         "- Re-run the operating-point experiment when the number of open cases changes by 10x.",
-        "- Obtain RFW and an Indian evaluation set before any field use; add child and age-gap evaluation (Week 3).",
+        "- Obtain RFW and an Indian evaluation set before any field use; evaluate on real CCTV video (YTF or own data "
+        "with consent) and on a larger child/age-gap set (AgeDB, CACD).",
         "- Prefer several reference photos per case when available.", "",
     ]
     path = os.path.join(ROOT, "docs", "MODEL_CARD.md")

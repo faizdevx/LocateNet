@@ -78,6 +78,7 @@ for _key, _name in (("UPLOAD_FOLDER", "uploads"), ("RESOURCES_FOLDER", "resource
     os.makedirs(app_module.app.config[_key], exist_ok=True)
 
 TABLES = ["matches", "sighting_face_reviews", "sighting_faces", "public_submissions", "case_embeddings", "audit_log",
+          "negative_exemplars",
           "cases", "users"]
 
 

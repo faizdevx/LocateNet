@@ -4,5 +4,12 @@
   "tune_threshold_fpir1": 0.08032356947660448,
   "test_rank1": 1.0,
   "test_fnir_fpir1": 0.0,
-  "test_threshold_fpir1": 0.08230223506689073
+  "test_threshold_fpir1": 0.08230223506689073,
+  "template_max_rank1": 1.0,
+  "template_mean_template_rank1": 1.0,
+  "template_quality_weighted_mean_rank1": 1.0,
+  "template_top2_mean_rank1": 1.0,
+  "track_segments": 2.0,
+  "track_qwm_first_dim": 0.01127756480127573,
+  "suppression_downgrade": 1.0
 }

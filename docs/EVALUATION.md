@@ -14,6 +14,7 @@ Model: InsightFace `buffalo_l` (SCRFD-10GF detector + ArcFace ResNet-50 trained 
 | ECE raw (min-max) -> calibrated (platt) | 0.125 -> 0.006 |
 | Worst/best group FMR ratio at pooled FMR 1e-4 (LFW fallback; Indian group too small to measure) | 9.04x (asian vs white) [5.94, 15.67] |
 | FNMR, child enrolment vs 0-2 y / 21+ y age gap (FG-NET) | 2.8% / 59.2%  [52.0%, 66.7%] |
+| Video aggregation vs best frame (SYNTHETIC tracks): FNIR / FAISS searches | 0.0% vs 0.0%; 265 vs 2437 searches (no accuracy gain; ID-switch split cuts misses on glued tracks from 11% to 0%) |
 | Minimum usable face width | 32 px |
 | p95 latency, 10-face photo (CPU, det_size 640) | 2588 ms |
 
@@ -607,8 +608,9 @@ Some LFW tiles contain bystanders, so more faces are detected than tiles. About 
   IR, or compression artefacts of real video pipelines.
 - **Demographic labels are noisy** (classifier scores, not self-reported), the groups are unbalanced,
   and the Indian group, which is the deployment population, has very little data.
-- **No children and no large age gaps.** Missing-person cases often involve children and photos taken
-  years apart. Neither is covered yet (Week 3).
+- **Small age-gap data.** FG-NET has 82 subjects and scanned prints; CALFW has no per-image ages. The
+  shape of the age-gap curve is solid, the exact percentages are not. AgeDB/CACD would tighten them.
+- **Video results are synthetic.** Degraded LFW stills stand in for CCTV tracks (YouTube Faces needs a request).
 - **One reference photo per case** is assumed. Several reference photos per case would change the
   numbers (usually for the better).
 - **Small non-mated sets.** FPIR = 0.1% rests on a handful of errors; the bootstrap CIs show this.
