@@ -327,6 +327,57 @@ With `max` every recency setting is worse; with `quality_weighted_mean` tau = 5 
 
 4. **Learned age-robust adapter: not attempted.** not attempted: needs CACD (~160k images, ~15 h of CPU embedding here) for identity-disjoint training; see docs/EVALUATION.md. Week 4 candidate.
 
+## Video: track aggregation and hygiene
+
+> **Synthetic fallback.** YouTube Faces needs a request; these tracks are degraded LFW stills, not real video (no motion blur, pose change or real tracker errors). Treat them as a check of the logic.
+
+Preferred data: YouTube Faces (needs a request; loader in eval/datasets/restricted.py).
+FALLBACK used when YTF is absent — SYNTHETIC pseudo-tracks, clearly not real video:
+  * LFW identities with >= 6 enrolled images, split tune / test by identity (Week 2 partition);
+    70% are gallery cases (one still photo enrolled), 30% are non-mated; single-image identities
+    pad the gallery.
+  * each identity's pseudo-track has `frames_per_track` frames sampled (seeded, with replacement)
+    from its OTHER images; every frame gets its own random degradation. difficulty "hard" (primary):
+    CCTV-like, face width 16-48 px + sensor noise + JPEG 40; "mild": blur sigma 0-3, face width
+    24-112 px, JPEG 30-95.
+  * ID-switch hygiene test: on each split, half of the gallery tracks are "contaminated" by
+    replacing their second half with frames of a different person. TRACK_SPLIT_THRESHOLD is chosen
+    on the tune split to best separate contaminated from clean tracks, then applied to test.
+Strategies (services/track_aggregator): best_frame (search every frame, keep the best; Week 2
+behaviour), mean, quality_weighted_mean, top_n_quality_mean (n = 5). One FAISS search per
+sub-track instead of one per frame (except best_frame). Threshold per strategy at FPIR = 1% on
+tune, FNIR on test. Frame stride s keeps frames 0, s, 2s, ... of each pseudo-track.
+Speed: VideoPipeline (YOLOv8n + DeepSORT + buffalo_l) on a synthetic 30 s, 25 fps clip of moving
+LFW photos, seconds of processing per minute of video, for each stride.
+
+Frames per track 12; test split: 106 clean mated tracks, 53 ID-switched tracks, 45 non-mated tracks; frame failure to enrol 0.3%. TRACK_SPLIT_THRESHOLD = 0.1 (tune accuracy at spotting ID switches 97.6%).
+
+| Strategy | Track split | FNIR all | FNIR clean tracks | FNIR ID-switched tracks | FAISS searches (test) |
+|---|---|---|---|---|---|
+| best_frame | no | 0.0% [0.0%, 0.0%] | 0.0% | 0.0% | 2437 |
+| best_frame | yes | 0.0% [0.0%, 0.0%] | 0.0% | 0.0% | 2437 |
+| mean | no | 4.4% [1.3%, 7.8%] | 0.0% | 13.2% | 204 |
+| mean | yes | 0.0% [0.0%, 0.0%] | 0.0% | 0.0% | 265 |
+| quality_weighted_mean | no | 3.8% [1.2%, 6.8%] | 0.0% | 11.3% | 204 |
+| quality_weighted_mean | yes | 0.0% [0.0%, 0.0%] | 0.0% | 0.0% | 265 |
+| top_n_quality_mean | no | 10.1% [6.1%, 14.2%] | 0.0% | 30.2% | 204 |
+| top_n_quality_mean | yes | 0.0% [0.0%, 0.0%] | 0.0% | 0.0% | 265 |
+
+| Frame stride | FNIR [95% CI] | CPU seconds per minute of video |
+|---|---|---|
+| 1 | 0.0% [0.0%, 0.0%] | 2472 |
+| 3 | 2.5% [0.6%, 5.1%] | 819 |
+| 5 | 1.3% [0.0%, 3.2%] | 490 |
+| 10 | 10.1% [5.4%, 15.4%] | 241 |
+
+![Video aggregation](../eval/plots/video_aggregation.png)
+
+Decision: `TRACK_AGG_STRATEGY = best_frame` (no strategy beat the baseline; aggregation only saves FAISS searches, which cost milliseconds), `ENABLE_TRACK_SPLIT = True` at 0.1 (without it, aggregated strategies miss 11-30% of ID-switched tracks), `VIDEO_FRAME_STRIDE = 5`.
+
+Interpretation: on CPU the video pipeline runs far slower than real time even at stride 10 (YOLO + all five buffalo_l models on every person in every sampled frame), so long CCTV clips need a GPU or pre-trimming. Per track, officers now see the three best frames, the time span and the number of frames used. A real-video evaluation (YTF or own CCTV with consent) is still required.
+
+Mild-degradation run (`eval/results/video_mild.json`): every strategy reaches FNIR 0.0% with splitting; split threshold 0.25.
+
 ## 7a. Robustness to image degradation
 
 Only PROBE images are degraded, at the image level BEFORE detection, so detection failures count.

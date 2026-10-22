@@ -60,6 +60,16 @@ RECENCY_TAU = _env_float("RECENCY_TAU", 5.0)
 AGE_GAP_WARNING_YEARS = _env_float("AGE_GAP_WARNING_YEARS", 5)
 AGE_GAP_RESULTS = os.environ.get("LOCATENET_AGE_GAP_RESULTS", os.path.join(BASE_DIR, "eval", "results", "age_gap.json"))
 
+# Video (Week 3). Source: eval/results/video.json (SYNTHETIC pseudo-tracks; YouTube Faces not available).
+# Aggregating a track into one embedding gave no accuracy gain over searching every frame, so the
+# baseline stays (best_frame); the other strategies are available. Splitting tracks at an ID switch
+# is on: it found 97.6% of glued tracks on the tune split and keeps each sub-track's crops one person.
+TRACK_AGG_STRATEGY = os.environ.get("TRACK_AGG_STRATEGY", "best_frame")
+ENABLE_TRACK_SPLIT = _env_bool("ENABLE_TRACK_SPLIT", True)
+TRACK_SPLIT_THRESHOLD = _env_float("TRACK_SPLIT_THRESHOLD", 0.1)
+# Every 5th frame: FNIR within noise of stride 3 at 40% less CPU; stride 10 loses clearly.
+VIDEO_FRAME_STRIDE = _env_int("VIDEO_FRAME_STRIDE", 5)
+
 # Score calibration (eval/calibrate.py). The likelihood shown to officers is only valid at this
 # assumed share of searched faces that belong to an enrolled person; see services/calibration.py.
 CALIBRATOR_PATH = os.environ.get("LOCATENET_CALIBRATOR", os.path.join(BASE_DIR, "models", "calibrator.json"))

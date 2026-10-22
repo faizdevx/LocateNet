@@ -417,6 +417,48 @@ def sec_age_mitigation(R):
     return "\n".join(lines)
 
 
+def sec_video(R):
+    v = R.get("video")
+    if not v:
+        return ""
+    lines = ["## Video: track aggregation and hygiene", "",
+             "> **Synthetic fallback.** YouTube Faces needs a request; these tracks are degraded LFW stills, not real "
+             "video (no motion blur, pose change or real tracker errors). Treat them as a check of the logic.", "",
+             v["protocol"], "",
+             f"Frames per track {v['sizes']['test']['frames_per_track']}; test split: {v['sizes']['test']['gallery_tracks']} "
+             f"clean mated tracks, {v['sizes']['test']['contaminated_tracks']} ID-switched tracks, "
+             f"{v['sizes']['test']['nonmated_tracks']} non-mated tracks; frame failure to enrol {pct(v['frame_fte'], 1)}. "
+             f"TRACK_SPLIT_THRESHOLD = {v['track_split_threshold']} (tune accuracy at spotting ID switches "
+             f"{pct(v['track_split_tune_accuracy'], 1)}).", "",
+             "| Strategy | Track split | FNIR all | FNIR clean tracks | FNIR ID-switched tracks | FAISS searches (test) |",
+             "|---|---|---|---|---|---|"]
+    for s_name, d in v["strategies"].items():
+        for hyg, r in d.items():
+            lines.append(f"| {s_name} | {'yes' if hyg == 'split' else 'no'} | {pct(r['test_fnir'], 1)}{ci(r['test_fnir_ci'], 1)} | "
+                         f"{pct(r['clean_tracks']['test_fnir'], 1)} | {pct(r['contaminated_tracks']['test_fnir'], 1)} | "
+                         f"{r['faiss_calls_test']} |")
+    lines += ["", "| Frame stride | FNIR [95% CI] | CPU seconds per minute of video |", "|---|---|---|"]
+    for k, r in v["stride"].items():
+        sp = (v.get("speed") or {}).get(k, {})
+        lines.append(f"| {k} | {pct(r['test_fnir'], 1)}{ci(r['test_fnir_ci'], 1)} | "
+                     f"{sp.get('seconds_per_video_minute', float('nan')):.0f} |")
+    lines += ["", img(v["plot"], "Video aggregation"), "",
+              f"Decision: `TRACK_AGG_STRATEGY = {v['chosen_strategy']}` (no strategy beat the baseline; aggregation only "
+              "saves FAISS searches, which cost milliseconds), `ENABLE_TRACK_SPLIT = True` at "
+              f"{v['track_split_threshold']} (without it, aggregated strategies miss 11-30% of ID-switched tracks), "
+              "`VIDEO_FRAME_STRIDE = 5`.", "",
+              "Interpretation: on CPU the video pipeline runs far slower than real time even at stride 10 (YOLO + all "
+              "five buffalo_l models on every person in every sampled frame), so long CCTV clips need a GPU or "
+              "pre-trimming. Per track, officers now see the three best frames, the time span and the number of "
+              "frames used. A real-video evaluation (YTF or own CCTV with consent) is still required.", ""]
+    mild = R.get("video_mild")
+    if mild:
+        lines += [f"Mild-degradation run (`eval/results/video_mild.json`): every strategy reaches FNIR "
+                  f"{pct(mild['strategies']['best_frame']['split']['test_fnir'], 1)} with splitting; split threshold "
+                  f"{mild['track_split_threshold']}.", ""]
+    return "\n".join(lines)
+
+
 def sec_robustness(R):
     r = R["robustness"]
     if not r:
@@ -556,7 +598,7 @@ THREATS = """## Threats to validity
 def build_report():
     names = ["embed_lfw", "verification_lfw", "openset_lfw", "operating_point", "calibration", "bias",
              "robustness", "quality", "detection_widerface", "latency", "detsize_check", "label_noise", "age_gap",
-             "embed_fgnet", "embed_calfw", "multi_template", "age_mitigation"]
+             "embed_fgnet", "embed_calfw", "multi_template", "age_mitigation", "video", "video_mild"]
     R = {n: _load(n) for n in names}
     meta = next((r["meta"] for r in R.values() if r), {})
     parts = [
@@ -570,7 +612,7 @@ def build_report():
         "CIs are 95% bootstrap intervals that resample identities. Scores are cosine similarities of L2-normalised "
         "embeddings; FNIR/FPIR follow the NIST FRVT 1:N definitions at rank 1.", "",
         sec_embed(R), sec_verification(R), sec_openset(R), sec_operating(R), sec_calibration(R), sec_bias(R),
-        sec_label_noise(R), sec_age_gap(R), sec_multi_template(R), sec_age_mitigation(R), sec_robustness(R), sec_quality(R), sec_detection(R), sec_latency(R), THREATS,
+        sec_label_noise(R), sec_age_gap(R), sec_multi_template(R), sec_age_mitigation(R), sec_video(R), sec_robustness(R), sec_quality(R), sec_detection(R), sec_latency(R), THREATS,
         "## Reproduce", "", "```bash",
         "pip install -r requirements.txt -r requirements-eval.txt",
         "python scripts/get_eval_data.py",

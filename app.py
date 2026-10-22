@@ -142,7 +142,8 @@ def case_age_warning(case):
 
 reload_matcher()
 pipeline = DetectionPipeline(face_svc, reid_svc, search_svc, matcher_provider=lambda: template_state["matcher"])
-video_pipeline = VideoPipeline(face_svc, reid_svc, search_svc, matcher_provider=lambda: template_state["matcher"])
+video_pipeline = VideoPipeline(face_svc, reid_svc, search_svc, frame_stride=config.VIDEO_FRAME_STRIDE,
+                               matcher_provider=lambda: template_state["matcher"])
 
 CITY_COORDS_FALLBACK = {
     "Delhi": (28.6139, 77.2090),
@@ -401,6 +402,10 @@ def report_sighting():
                         "bbox": track.get("face_bbox") or track.get("person_bbox"),
                         "face_crop_path": track.get("face_crop_path"),
                         "embedding": track.get("face_embedding", []),
+                        "extra_crops": track.get("extra_crops"),
+                        "track_start_s": track.get("start_s"),
+                        "track_end_s": track.get("end_s"),
+                        "n_frames": track.get("n_frames"),
                     })
             else:
                 image_np = cv2.imread(filepath)
@@ -442,6 +447,10 @@ def report_sighting():
                     "likelihood_prior": config.CALIBRATION_PRIOR if face_data["calibrated_likelihood"] is not None else None,
                     "category": face_data["category"],
                     "bbox": face_data["bbox"],
+                    "extra_crops": face_data.get("extra_crops"),
+                    "track_start_s": face_data.get("track_start_s"),
+                    "track_end_s": face_data.get("track_end_s"),
+                    "n_frames": face_data.get("n_frames"),
                 })
                 faces_detected_count += 1
 

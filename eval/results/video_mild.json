@@ -1,0 +1,322 @@
+{
+  "meta": {
+    "experiment": "video",
+    "config": "eval/config/video_mild.yaml",
+    "model": "buffalo_l",
+    "insightface_version": "2.1",
+    "onnxruntime_version": "1.31.0",
+    "faiss_version": "1.15.1",
+    "dataset_version": "SYNTHETIC pseudo-tracks from LFW (YTF not available)",
+    "git_commit": "557d2c9603e70a2cff42265a259d0c8d47d2b6ee-dirty",
+    "timestamp": "2026-10-22T13:30:53+00:00",
+    "seed": 0,
+    "python": "3.12.11"
+  },
+  "difficulty": "mild",
+  "data": "SYNTHETIC FALLBACK: degraded LFW stills, not real video",
+  "protocol": "Preferred data: YouTube Faces (needs a request; loader in eval/datasets/restricted.py).\nFALLBACK used when YTF is absent \u2014 SYNTHETIC pseudo-tracks, clearly not real video:\n  * LFW identities with >= 6 enrolled images, split tune / test by identity (Week 2 partition);\n    70% are gallery cases (one still photo enrolled), 30% are non-mated; single-image identities\n    pad the gallery.\n  * each identity's pseudo-track has `frames_per_track` frames sampled (seeded, with replacement)\n    from its OTHER images; every frame gets its own random degradation. difficulty \"hard\" (primary):\n    CCTV-like, face width 16-48 px + sensor noise + JPEG 40; \"mild\": blur sigma 0-3, face width\n    24-112 px, JPEG 30-95.\n  * ID-switch hygiene test: on each split, half of the gallery tracks are \"contaminated\" by\n    replacing their second half with frames of a different person. TRACK_SPLIT_THRESHOLD is chosen\n    on the tune split to best separate contaminated from clean tracks, then applied to test.\nStrategies (services/track_aggregator): best_frame (search every frame, keep the best; Week 2\nbehaviour), mean, quality_weighted_mean, top_n_quality_mean (n = 5). One FAISS search per\nsub-track instead of one per frame (except best_frame). Threshold per strategy at FPIR = 1% on\ntune, FNIR on test. Frame stride s keeps frames 0, s, 2s, ... of each pseudo-track.\nSpeed: VideoPipeline (YOLOv8n + DeepSORT + buffalo_l) on a synthetic 30 s, 25 fps clip of moving\nLFW photos, seconds of processing per minute of video, for each stride.",
+  "frame_fte": 0.0,
+  "track_split_threshold": 0.25,
+  "track_split_tune_accuracy": 0.994118,
+  "strategies": {
+    "best_frame": {
+      "no_split": {
+        "threshold_fpir1_tune": 0.315304,
+        "test_fnir": 0.0,
+        "test_fnir_ci": [
+          0.0,
+          0.0
+        ],
+        "test_fpir": 0.088889,
+        "clean_tracks": {
+          "threshold_fpir1_tune": 0.315304,
+          "test_fnir": 0.0,
+          "test_fnir_ci": [
+            0.0,
+            0.0
+          ],
+          "test_fpir": 0.088889
+        },
+        "contaminated_tracks": {
+          "threshold_fpir1_tune": 0.315304,
+          "test_fnir": 0.0,
+          "test_fnir_ci": [
+            0.0,
+            0.0
+          ],
+          "test_fpir": 0.088889
+        },
+        "faiss_calls_test": 2448,
+        "splits_test": 0
+      },
+      "split": {
+        "threshold_fpir1_tune": 0.315304,
+        "test_fnir": 0.0,
+        "test_fnir_ci": [
+          0.0,
+          0.0
+        ],
+        "test_fpir": 0.088889,
+        "clean_tracks": {
+          "threshold_fpir1_tune": 0.315304,
+          "test_fnir": 0.0,
+          "test_fnir_ci": [
+            0.0,
+            0.0
+          ],
+          "test_fpir": 0.088889
+        },
+        "contaminated_tracks": {
+          "threshold_fpir1_tune": 0.315304,
+          "test_fnir": 0.0,
+          "test_fnir_ci": [
+            0.0,
+            0.0
+          ],
+          "test_fpir": 0.088889
+        },
+        "faiss_calls_test": 2448,
+        "splits_test": 56
+      }
+    },
+    "mean": {
+      "no_split": {
+        "threshold_fpir1_tune": 0.302134,
+        "test_fnir": 0.0,
+        "test_fnir_ci": [
+          0.0,
+          0.0
+        ],
+        "test_fpir": 0.022222,
+        "clean_tracks": {
+          "threshold_fpir1_tune": 0.302134,
+          "test_fnir": 0.0,
+          "test_fnir_ci": [
+            0.0,
+            0.0
+          ],
+          "test_fpir": 0.022222
+        },
+        "contaminated_tracks": {
+          "threshold_fpir1_tune": 0.302134,
+          "test_fnir": 0.0,
+          "test_fnir_ci": [
+            0.0,
+            0.0
+          ],
+          "test_fpir": 0.022222
+        },
+        "faiss_calls_test": 204,
+        "splits_test": 0
+      },
+      "split": {
+        "threshold_fpir1_tune": 0.302134,
+        "test_fnir": 0.0,
+        "test_fnir_ci": [
+          0.0,
+          0.0
+        ],
+        "test_fpir": 0.022222,
+        "clean_tracks": {
+          "threshold_fpir1_tune": 0.302134,
+          "test_fnir": 0.0,
+          "test_fnir_ci": [
+            0.0,
+            0.0
+          ],
+          "test_fpir": 0.022222
+        },
+        "contaminated_tracks": {
+          "threshold_fpir1_tune": 0.302134,
+          "test_fnir": 0.0,
+          "test_fnir_ci": [
+            0.0,
+            0.0
+          ],
+          "test_fpir": 0.022222
+        },
+        "faiss_calls_test": 260,
+        "splits_test": 56
+      }
+    },
+    "quality_weighted_mean": {
+      "no_split": {
+        "threshold_fpir1_tune": 0.300368,
+        "test_fnir": 0.0,
+        "test_fnir_ci": [
+          0.0,
+          0.0
+        ],
+        "test_fpir": 0.022222,
+        "clean_tracks": {
+          "threshold_fpir1_tune": 0.300368,
+          "test_fnir": 0.0,
+          "test_fnir_ci": [
+            0.0,
+            0.0
+          ],
+          "test_fpir": 0.022222
+        },
+        "contaminated_tracks": {
+          "threshold_fpir1_tune": 0.300368,
+          "test_fnir": 0.0,
+          "test_fnir_ci": [
+            0.0,
+            0.0
+          ],
+          "test_fpir": 0.022222
+        },
+        "faiss_calls_test": 204,
+        "splits_test": 0
+      },
+      "split": {
+        "threshold_fpir1_tune": 0.300368,
+        "test_fnir": 0.0,
+        "test_fnir_ci": [
+          0.0,
+          0.0
+        ],
+        "test_fpir": 0.022222,
+        "clean_tracks": {
+          "threshold_fpir1_tune": 0.300368,
+          "test_fnir": 0.0,
+          "test_fnir_ci": [
+            0.0,
+            0.0
+          ],
+          "test_fpir": 0.022222
+        },
+        "contaminated_tracks": {
+          "threshold_fpir1_tune": 0.300368,
+          "test_fnir": 0.0,
+          "test_fnir_ci": [
+            0.0,
+            0.0
+          ],
+          "test_fpir": 0.022222
+        },
+        "faiss_calls_test": 260,
+        "splits_test": 56
+      }
+    },
+    "top_n_quality_mean": {
+      "no_split": {
+        "threshold_fpir1_tune": 0.278313,
+        "test_fnir": 0.08805,
+        "test_fnir_ci": [
+          0.046653,
+          0.131688
+        ],
+        "test_fpir": 0.155556,
+        "clean_tracks": {
+          "threshold_fpir1_tune": 0.278313,
+          "test_fnir": 0.0,
+          "test_fnir_ci": [
+            0.0,
+            0.0
+          ],
+          "test_fpir": 0.155556
+        },
+        "contaminated_tracks": {
+          "threshold_fpir1_tune": 0.278313,
+          "test_fnir": 0.264151,
+          "test_fnir_ci": [
+            0.152968,
+            0.400442
+          ],
+          "test_fpir": 0.155556
+        },
+        "faiss_calls_test": 204,
+        "splits_test": 0
+      },
+      "split": {
+        "threshold_fpir1_tune": 0.278313,
+        "test_fnir": 0.0,
+        "test_fnir_ci": [
+          0.0,
+          0.0
+        ],
+        "test_fpir": 0.155556,
+        "clean_tracks": {
+          "threshold_fpir1_tune": 0.278313,
+          "test_fnir": 0.0,
+          "test_fnir_ci": [
+            0.0,
+            0.0
+          ],
+          "test_fpir": 0.155556
+        },
+        "contaminated_tracks": {
+          "threshold_fpir1_tune": 0.278313,
+          "test_fnir": 0.0,
+          "test_fnir_ci": [
+            0.0,
+            0.0
+          ],
+          "test_fpir": 0.155556
+        },
+        "faiss_calls_test": 260,
+        "splits_test": 56
+      }
+    }
+  },
+  "chosen_strategy": "quality_weighted_mean",
+  "stride": {
+    "1": {
+      "threshold_fpir1_tune": 0.300368,
+      "test_fnir": 0.0,
+      "test_fnir_ci": [
+        0.0,
+        0.0
+      ],
+      "test_fpir": 0.022222,
+      "faiss_calls_test": 260
+    },
+    "3": {
+      "threshold_fpir1_tune": 0.297837,
+      "test_fnir": 0.0,
+      "test_fnir_ci": [
+        0.0,
+        0.0
+      ],
+      "test_fpir": 0.066667,
+      "faiss_calls_test": 262
+    },
+    "5": {
+      "threshold_fpir1_tune": 0.330016,
+      "test_fnir": 0.0,
+      "test_fnir_ci": [
+        0.0,
+        0.0
+      ],
+      "test_fpir": 0.0,
+      "faiss_calls_test": 257
+    },
+    "10": {
+      "threshold_fpir1_tune": 0.32073,
+      "test_fnir": 0.0,
+      "test_fnir_ci": [
+        0.0,
+        0.0
+      ],
+      "test_fpir": 0.022222,
+      "faiss_calls_test": 257
+    }
+  },
+  "speed": null,
+  "sizes": {
+    "tune": {
+      "gallery_tracks": 113,
+      "contaminated_tracks": 57,
+      "nonmated_tracks": 48,
+      "frames_per_track": 12
+    },
+    "test": {
+      "gallery_tracks": 106,
+      "contaminated_tracks": 53,
+      "nonmated_tracks": 45,
+      "frames_per_track": 12
+    }
+  },
+  "plot": "eval/plots/video_aggregation.png"
+}

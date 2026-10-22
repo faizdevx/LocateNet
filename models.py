@@ -97,6 +97,11 @@ def create_db():
         for col in ("similarity", "calibrated_likelihood", "likelihood_prior"):
             if col not in sighting_face_columns:
                 cursor.execute(f"ALTER TABLE sighting_faces ADD COLUMN {col} REAL")
+        # Week 3: video tracks (time span, frames used, representative crops as a JSON list)
+        for col, kind in (("track_start_s", "REAL"), ("track_end_s", "REAL"), ("n_frames", "INTEGER"),
+                          ("extra_crops", "TEXT"), ("source_type", "TEXT")):
+            if col not in sighting_face_columns:
+                cursor.execute(f"ALTER TABLE sighting_faces ADD COLUMN {col} {kind}")
         match_columns = [row[1] for row in cursor.execute("PRAGMA table_info(matches)").fetchall()]
         for col in ("similarity", "calibrated_likelihood", "likelihood_prior"):
             if col not in match_columns:
@@ -292,8 +297,9 @@ class db_queries:
         with get_db_connection() as conn:
             conn.execute("""
                 INSERT INTO sighting_faces (sighting_id, face_crop_path, match_id, percentage, category, bbox, created_at,
-                                            similarity, calibrated_likelihood, likelihood_prior)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                            similarity, calibrated_likelihood, likelihood_prior,
+                                            track_start_s, track_end_s, n_frames, extra_crops, source_type)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 face_data["sighting_id"],
                 face_data["face_crop_path"],
@@ -305,6 +311,11 @@ class db_queries:
                 opt_float("similarity"),
                 opt_float("calibrated_likelihood"),
                 opt_float("likelihood_prior"),
+                opt_float("track_start_s"),
+                opt_float("track_end_s"),
+                int(face_data["n_frames"]) if face_data.get("n_frames") is not None else None,
+                json.dumps(face_data["extra_crops"]) if face_data.get("extra_crops") else None,
+                face_data.get("source_type") or ("video" if face_data.get("n_frames") is not None else "image"),
             ))
             conn.commit()
 
@@ -336,6 +347,7 @@ class db_queries:
         for row in rows:
             face = dict(row)
             face["bbox"] = json.loads(face["bbox"]) if face.get("bbox") else None
+            face["extra_crops"] = json.loads(face["extra_crops"]) if face.get("extra_crops") else []
             faces.append(face)
         return faces
 

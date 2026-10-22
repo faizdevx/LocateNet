@@ -70,6 +70,12 @@
                                     <div class="small mb-3">
                                         <div><strong>Status:</strong> {{ face.category }}</div>
                                         <div class="text-muted">{{ scores.score_line(face, face.percentage) }}</div>
+                                        {% if face.n_frames %}
+                                        <div class="small mt-1"><strong>Video track:</strong> {{ '%.1f'|format(face.track_start_s or 0) }} s - {{ '%.1f'|format(face.track_end_s or 0) }} s, {{ face.n_frames }} frames used</div>
+                                        <div class="d-flex gap-1 mt-1">
+                                            {% for c in face.extra_crops %}<img src="/{{ c }}" alt="Track frame" style="width:56px;height:56px;object-fit:cover;border-radius:4px;">{% endfor %}
+                                        </div>
+                                        {% endif %}
                                         {% if face.age_warning %}<div class="alert alert-warning py-1 px-2 mt-1 mb-0 small">{{ face.age_warning }}</div>{% endif %}
                                         {% if face.match_id and face.match_id != -1 %}
                                         <div><strong>Target:</strong> {{ face.matched_person_name or ('Person ' ~ face.match_id) }}</div>

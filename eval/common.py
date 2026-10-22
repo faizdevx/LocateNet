@@ -20,7 +20,10 @@ def load_config(path):
     with open(path) as f:
         cfg = yaml.safe_load(f)
     cfg.setdefault("seed", 0)
-    cfg["_config_path"] = os.path.relpath(os.path.abspath(path), ROOT).replace("\\", "/")
+    try:
+        cfg["_config_path"] = os.path.relpath(os.path.abspath(path), ROOT).replace("\\", "/")
+    except ValueError:  # config on another drive
+        cfg["_config_path"] = os.path.abspath(path).replace("\\", "/")
     return cfg
 
 

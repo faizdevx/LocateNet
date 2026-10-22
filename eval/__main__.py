@@ -25,6 +25,7 @@ EXPERIMENTS = {
     "age_gap": "eval.protocols.age_gap",
     "multi_template": "eval.protocols.multi_template",
     "age_mitigation": "eval.protocols.age_mitigation",
+    "video": "eval.protocols.video",
     "smoke": "eval.protocols.smoke",
 }
 
