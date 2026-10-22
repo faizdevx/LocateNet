@@ -451,3 +451,109 @@ See `LICENSE` file.
 ## Author
 
 faizdevx
+
+---
+
+## Full workflow walkthrough (end to end)
+
+A real-life style example, recorded on the running application with the real models:
+**Anil Verma** goes missing in Aligarh. An officer registers the case, citizens report sightings,
+the system raises alerts, a human reviews and confirms, and the case is closed when he is found.
+
+<p align="center">
+  <a href="docs/walkthrough/walkthrough.mp4"><img src="docs/walkthrough/walkthrough_preview.gif" width="760" alt="LocateNet walkthrough (5x speed preview, click for the full video)"></a>
+  <br><em>5x speed preview. <a href="docs/walkthrough/walkthrough.mp4">Full video (2 min 24 s, mp4)</a></em>
+</p>
+
+Everything shown is fictional. The people are **synthetic faces from the open DigiFace-1M dataset**
+(computer-rendered, none of them real), the names are invented, and the "CCTV" photos are collages
+built for the demo. Source, licence (non-commercial research use) and credit:
+[docs/walkthrough/inputs/README.md](docs/walkthrough/inputs/README.md). The red ring in every
+screenshot marks the click.
+
+### 1. A citizen opens LocateNet
+No account is needed to report a sighting or search the public registry.
+
+<img src="docs/walkthrough/screenshots/01_public_home.png" width="820" alt="1. A citizen opens LocateNet">
+
+### 2. Inspector Meera Rao logs in
+Hashed passwords, a fresh session on login, CSRF tokens on every form.
+
+<img src="docs/walkthrough/screenshots/03_officer_login.png" width="820" alt="2. Inspector Meera Rao logs in">
+
+### 3. She registers a missing person
+Anil Verma, last seen in Aligarh: a 2017 reference photo, date of birth and city. Each photo is quality-checked (clear, large enough face).
+
+<img src="docs/walkthrough/screenshots/05_register_case_filled.png" width="820" alt="3. She registers a missing person">
+
+### 4. The case page warns that the photo is old
+The warning and the miss rate shown come from the measured age-gap evaluation, not from a fixed number.
+
+<img src="docs/walkthrough/screenshots/06_case_age_warning.png" width="820" alt="4. The case page warns that the photo is old">
+
+### 5. She adds a recent reference photo (2025)
+Several photos from different years are the best protection against ageing. Every change goes to the audit log.
+
+<img src="docs/walkthrough/screenshots/07_case_two_photos.png" width="820" alt="5. She adds a recent reference photo (2025)">
+
+### 6. The case appears in the public registry
+Only missing people, and only name, city, date and photo, are public.
+
+<img src="docs/walkthrough/screenshots/08_registry_with_case.png" width="820" alt="6. The case appears in the public registry">
+
+### 7. A citizen reports a sighting
+Name, phone, place and a group photo (here a CCTV-style still of six people). All faces are found and compared with every open case.
+
+<img src="docs/walkthrough/screenshots/09_report_sighting_1.png" width="820" alt="7. A citizen reports a sighting">
+
+### 8. The third report raises a hotspot
+The same case matched 3 times in one city within 48 hours.
+
+<img src="docs/walkthrough/screenshots/11_hotspot.png" width="820" alt="8. The third report raises a hotspot">
+
+### 9. The officer sees three alerts
+Raw similarity, an *estimated* match likelihood and "Needs human confirmation".
+
+<img src="docs/walkthrough/screenshots/12_dashboard_alerts.png" width="820" alt="9. The officer sees three alerts">
+
+### 10. She reviews the faces
+One face is a possible match; the strangers score as No Match (similarity around 0.1-0.2).
+
+<img src="docs/walkthrough/screenshots/13_sighting_faces.png" width="820" alt="10. She reviews the faces">
+
+### 11. She confirms and adds the face as a reference photo
+Opt-in, behind guards: only the case's officer, a quality check, and the face must resemble the enrolled photos.
+
+<img src="docs/walkthrough/screenshots/14_confirm_match.png" width="820" alt="11. She confirms and adds the face as a reference photo">
+
+### 12. The case keeps a full audit trail
+The photo from the sighting is labelled "confirmed sighting", can be deactivated, and is logged.
+
+<img src="docs/walkthrough/screenshots/17_case_audit_log.png" width="820" alt="12. The case keeps a full audit trail">
+
+### 13. An Admin checks model health
+Field precision, calibration, alert volume and review latency. With too few reviews it says "insufficient data" instead of showing a percentage.
+
+<img src="docs/walkthrough/screenshots/18_model_health.png" width="820" alt="13. An Admin checks model health">
+
+### 14. The case is closed
+"Mark Found" removes the case from matching and from the public registry.
+
+<img src="docs/walkthrough/screenshots/21_registry_after_resolve.png" width="820" alt="14. The case is closed">
+
+### What the example does not show
+Video uploads (YOLO + tracking), the random QA sample of below-threshold faces and calibration
+proposals are covered in [docs/EVALUATION.md](docs/EVALUATION.md) and
+[docs/FEEDBACK_LOOP.md](docs/FEEDBACK_LOOP.md). The matches here are easy: the same synthetic
+person rendered with other accessories and lighting. Real phone or CCTV photos are harder, so
+expect more misses than in this demo (see the limitations above).
+
+### Reproduce the recording
+
+```bash
+pip install playwright          # uses an installed Edge or Chrome; ffmpeg is needed for mp4/gif
+export LOCATENET_DB=demo.db LOCATENET_SECRET_KEY=demo
+python scripts/seed_walkthrough.py       # empty demo database + two demo accounts
+python app.py                            # terminal 1
+python scripts/make_walkthrough.py       # terminal 2: screenshots + walkthrough.mp4 + preview gif
+```

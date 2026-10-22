@@ -58,3 +58,9 @@ def test_case_page_and_alert_show_the_age_gap_banner(client, monkeypatch, tmp_pa
     app_module.face_svc.faces = []
     page = client.get(r.headers["Location"]).get_data(as_text=True)
     assert "Reference photo is ~8 years old" in page and "~17%" in page
+
+
+def test_tiny_measured_rate_is_worded_as_low_not_zero():
+    est = {"bucket": "6-10", "fnmr": 0.0, "fnmr_ci": [0.0, 0.0], "table": "adult_enrolment"}
+    text = age_risk.warning_text(10, est, 5)
+    assert "low, under 3%" in text and "~0%" not in text
