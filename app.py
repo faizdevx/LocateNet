@@ -34,7 +34,7 @@ logging.basicConfig(
 import config
 from models import *
 from services.alert_service import AlertService, normalize_location
-from services import ages, photo_quality
+from services import age_risk, ages, photo_quality
 from services.calibration import Calibrator
 from services.face_service import FaceService
 from services.template_matcher import TemplateMatcher
@@ -121,8 +121,23 @@ def reload_matcher():
         now_age = ages.current_age(r["dob"], r["age_reported"], r["age_reported_on"])
         years_old = ages.photo_years_old(r["photo_date"], r["age_at_photo"], now_age)
         rows.append((r["id"], r["case_id"], json.loads(r["embedding"]), r["quality_score"], years_old))
-    template_state["matcher"] = TemplateMatcher.from_rows(rows, strategy=config.TEMPLATE_STRATEGY)
+    template_state["matcher"] = TemplateMatcher.from_rows(
+        rows, strategy=config.TEMPLATE_STRATEGY, tau=config.RECENCY_TAU if config.ENABLE_RECENCY_WEIGHTING else None)
     return template_state["matcher"]
+
+
+AGE_RESULTS = age_risk.load_age_results(config.AGE_GAP_RESULTS)
+
+
+def case_age_warning(case):
+    """Banner text when the newest reference photo is older than AGE_GAP_WARNING_YEARS, else None."""
+    if not case:
+        return None
+    now_age = ages.current_age(case["dob"], case["age_reported"], case["age_reported_on"])
+    years_old, age_at = age_risk.newest_photo_age(get_case_embeddings(case["id"], active_only=True), now_age,
+                                                  ages.photo_years_old)
+    estimate = age_risk.expected_miss(AGE_RESULTS, years_old, age_at)
+    return age_risk.warning_text(years_old, estimate, config.AGE_GAP_WARNING_YEARS)
 
 
 reload_matcher()
@@ -537,6 +552,8 @@ def dashboard():
             ORDER BY m.date_detected DESC
         """, (user,)).fetchall()
 
+    alerts = [dict(a, age_warning=case_age_warning(get_case_by_id(a["case_id"]))) for a in alerts]
+
     if role == "Admin":
         cases = get_all_cases_admin()
         return render_template("admin_dashboard.html", alerts=alerts, 
@@ -577,6 +594,8 @@ def sighting_detail(sighting_id):
         return redirect(url_for("dashboard"))
 
     faces = db_queries.get_sighting_faces(sighting_id)
+    for f in faces:
+        f["age_warning"] = case_age_warning(get_case_by_id(f["match_id"])) if f.get("match_id") not in (None, -1) else None
     reviews = db_queries.get_sighting_face_reviews(sighting_id)
     return render_template("officer_sighting_detail.html", sighting=sighting, faces=faces, reviews=reviews)
 
@@ -687,6 +706,7 @@ def case_detail(case_id):
         abort(403)
     photos = get_case_embeddings(case_id)
     return render_template("case_detail.html", case=case, photos=photos, audit=get_audit_log(case_id),
+                           age_warning=case_age_warning(case),
                            max_photos=config.MAX_PHOTOS_PER_CASE,
                            n_active=sum(1 for p in photos if p["active"]))
 

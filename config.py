@@ -51,6 +51,14 @@ TEMPLATE_STRATEGY = os.environ.get("TEMPLATE_STRATEGY", "max")
 MAX_PHOTOS_PER_CASE = _env_int("MAX_PHOTOS_PER_CASE", 5)
 # Reference photos whose face is narrower than this are rejected (eval/results/robustness.json: 32 px).
 MIN_ENROL_FACE_PX = _env_float("MIN_ENROL_FACE_PX", 32)
+# Recency weighting of reference photos. Off: no variant beat the baseline beyond its CI on FG-NET
+# (eval/results/age_mitigation.json, negative result for max, inconclusive for quality_weighted_mean).
+ENABLE_RECENCY_WEIGHTING = _env_bool("ENABLE_RECENCY_WEIGHTING", False)
+RECENCY_TAU = _env_float("RECENCY_TAU", 5.0)
+# Warn officers when the newest reference photo is older than this (years). The expected miss rate
+# shown with the warning is read from AGE_GAP_RESULTS (eval/results/age_gap.json), not hardcoded.
+AGE_GAP_WARNING_YEARS = _env_float("AGE_GAP_WARNING_YEARS", 5)
+AGE_GAP_RESULTS = os.environ.get("LOCATENET_AGE_GAP_RESULTS", os.path.join(BASE_DIR, "eval", "results", "age_gap.json"))
 
 # Score calibration (eval/calibrate.py). The likelihood shown to officers is only valid at this
 # assumed share of searched faces that belong to an enrolled person; see services/calibration.py.

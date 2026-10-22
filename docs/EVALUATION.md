@@ -295,6 +295,38 @@ Chosen default `TEMPLATE_STRATEGY = max` (lowest mean test FNIR over k >= 2: max
 
 Interpretation: on LFW every strategy finds every probe (FNIR 0), so LFW cannot rank them; it does show the cost of `max`: with more photos per case the impostor scores rise, the FPIR-1% threshold climbs and, at one fixed production threshold, FPIR grows. On FG-NET (aging children, the real use case) more photos help a lot, and which photos matters more than how they are combined: one age-diverse pick (the most recent earlier photo) beats several random ones. FG-NET test has only 29 gallery subjects and 114 mated probes, so single-point differences between strategies are noise; the trend with k and with age-diverse picks is not.
 
+## Age mitigations (what helped, what did not)
+
+1. **Age-diverse enrolment guidance: shipped.** On FG-NET one well-chosen photo (the most recent earlier photo) gives test FNIR 7.0% vs 22.8% for a random one, and five age-diverse photos give 0.9%. The register form now asks for the most recent photo first and older photos from other years; the case page shows the expected miss rate for the age of the newest photo.
+
+2. **Recency weighting: not shipped (negative / inconclusive).** Setup (FG-NET, same subject split as multi_template): every gallery subject enrols all of its
+earlier photos (up to 5, age-diverse when it has more); probes are its latest third of photos.
+Non-mated probes: held-out FG-NET subjects + LFW non-mated test probes; LFW single-image
+distractors pad the gallery. A photo's age at search time is probe_age - photo_age, so the
+weights are computed per probe (in deployment: years since the photo date).
+Variants: strategy in {max, quality_weighted_mean} x tau in {none, 2, 5, 10} years
+(services/template_matcher: weights exp(-years/tau); for max a penalty of
+recency_penalty * (1 - weight)). Threshold per variant at FPIR = 1% on tune, FNIR on test,
+bootstrap CI over subjects. A variant is shipped only if its test FNIR CI lies entirely below
+the no-recency baseline of the same strategy.
+
+| Strategy | tau (years) | Test FNIR [95% CI] | Tune threshold |
+|---|---|---|---|
+| max | none | 0.9% [0.0%, 2.9%] | 0.357 |
+| max | 2 | 4.4% [0.0%, 10.6%] | 0.335 |
+| max | 5 | 3.5% [0.0%, 8.3%] | 0.344 |
+| max | 10 | 3.5% [0.0%, 8.3%] | 0.346 |
+| quality_weighted_mean | none | 2.6% [0.0%, 5.9%] | 0.353 |
+| quality_weighted_mean | 2 | 2.6% [0.0%, 7.0%] | 0.335 |
+| quality_weighted_mean | 5 | 0.9% [0.0%, 2.9%] | 0.353 |
+| quality_weighted_mean | 10 | 0.9% [0.0%, 2.9%] | 0.353 |
+
+With `max` every recency setting is worse; with `quality_weighted_mean` tau = 5 is better on paper but its CI overlaps the baseline. `ENABLE_RECENCY_WEIGHTING` stays off.
+
+3. **Age-gap warning: shipped.** When the newest reference photo is more than `AGE_GAP_WARNING_YEARS` (5) years old, the case page, the officer's alerts and the sighting page show e.g. "Reference photo is ~8 years old. Expected miss rate at this gap: ~17% ..."; the percentage is read at start-up from `eval/results/age_gap.json` (child or adult table by age at the photo).
+
+4. **Learned age-robust adapter: not attempted.** not attempted: needs CACD (~160k images, ~15 h of CPU embedding here) for identity-disjoint training; see docs/EVALUATION.md. Week 4 candidate.
+
 ## 7a. Robustness to image degradation
 
 Only PROBE images are degraded, at the image level BEFORE detection, so detection failures count.

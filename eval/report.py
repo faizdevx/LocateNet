@@ -388,6 +388,35 @@ def sec_multi_template(R):
     return "\n".join(lines)
 
 
+def sec_age_mitigation(R):
+    a = R.get("age_mitigation")
+    m = R.get("multi_template")
+    if not a:
+        return ""
+    lines = ["## Age mitigations (what helped, what did not)", ""]
+    if m:
+        fr, fa = m["fgnet"]["random"], m["fgnet"]["age_diverse"]
+        lines += [f"1. **Age-diverse enrolment guidance: shipped.** On FG-NET one well-chosen photo (the most recent earlier "
+                  f"photo) gives test FNIR {pct(fa['1']['max']['test_fnir'], 1)} vs {pct(fr['1']['max']['test_fnir'], 1)} for a random one, and five "
+                  f"age-diverse photos give {pct(fa['5']['max']['test_fnir'], 1)}. The register form now asks for the most recent photo "
+                  "first and older photos from other years; the case page shows the expected miss rate for the age of "
+                  "the newest photo.", ""]
+    lines += ["2. **Recency weighting: not shipped (negative / inconclusive).** " + a["protocol"], "",
+              "| Strategy | tau (years) | Test FNIR [95% CI] | Tune threshold |", "|---|---|---|---|"]
+    for strat, d in a["results"].items():
+        for tau, v in d.items():
+            lines.append(f"| {strat} | {tau if tau != 'None' else 'none'} | {pct(v['test_fnir'], 1)}{ci(v['test_fnir_ci'], 1)} | "
+                         f"{num(v['threshold_fpir1_tune'])} |")
+    lines += ["", "With `max` every recency setting is worse; with `quality_weighted_mean` tau = 5 is better on paper but its "
+              "CI overlaps the baseline. `ENABLE_RECENCY_WEIGHTING` stays off.", "",
+              "3. **Age-gap warning: shipped.** When the newest reference photo is more than `AGE_GAP_WARNING_YEARS` "
+              "(5) years old, the case page, the officer's alerts and the sighting page show e.g. \"Reference photo is "
+              "~8 years old. Expected miss rate at this gap: ~17% ...\"; the percentage is read at start-up from "
+              "`eval/results/age_gap.json` (child or adult table by age at the photo).", "",
+              f"4. **Learned age-robust adapter: not attempted.** {a['adapter']}. Week 4 candidate.", ""]
+    return "\n".join(lines)
+
+
 def sec_robustness(R):
     r = R["robustness"]
     if not r:
@@ -527,7 +556,7 @@ THREATS = """## Threats to validity
 def build_report():
     names = ["embed_lfw", "verification_lfw", "openset_lfw", "operating_point", "calibration", "bias",
              "robustness", "quality", "detection_widerface", "latency", "detsize_check", "label_noise", "age_gap",
-             "embed_fgnet", "embed_calfw", "multi_template"]
+             "embed_fgnet", "embed_calfw", "multi_template", "age_mitigation"]
     R = {n: _load(n) for n in names}
     meta = next((r["meta"] for r in R.values() if r), {})
     parts = [
@@ -541,7 +570,7 @@ def build_report():
         "CIs are 95% bootstrap intervals that resample identities. Scores are cosine similarities of L2-normalised "
         "embeddings; FNIR/FPIR follow the NIST FRVT 1:N definitions at rank 1.", "",
         sec_embed(R), sec_verification(R), sec_openset(R), sec_operating(R), sec_calibration(R), sec_bias(R),
-        sec_label_noise(R), sec_age_gap(R), sec_multi_template(R), sec_robustness(R), sec_quality(R), sec_detection(R), sec_latency(R), THREATS,
+        sec_label_noise(R), sec_age_gap(R), sec_multi_template(R), sec_age_mitigation(R), sec_robustness(R), sec_quality(R), sec_detection(R), sec_latency(R), THREATS,
         "## Reproduce", "", "```bash",
         "pip install -r requirements.txt -r requirements-eval.txt",
         "python scripts/get_eval_data.py",

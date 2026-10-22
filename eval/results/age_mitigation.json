@@ -1,0 +1,125 @@
+{
+  "meta": {
+    "experiment": "age_mitigation",
+    "config": "eval/config/age_mitigation.yaml",
+    "model": "buffalo_l",
+    "insightface_version": "2.1",
+    "onnxruntime_version": "1.31.0",
+    "faiss_version": "1.15.1",
+    "dataset_version": "FG-NET (Lanitis et al.), 1002 images / 82 subjects, mirror yanweifu.github.io/FG_NET_data",
+    "git_commit": "5bacc29720cf94bfb26aa0c4e9ea28b71793f63e-dirty",
+    "timestamp": "2026-10-22T12:44:49+00:00",
+    "seed": 0,
+    "python": "3.12.11"
+  },
+  "protocol": "Setup (FG-NET, same subject split as multi_template): every gallery subject enrols all of its\nearlier photos (up to 5, age-diverse when it has more); probes are its latest third of photos.\nNon-mated probes: held-out FG-NET subjects + LFW non-mated test probes; LFW single-image\ndistractors pad the gallery. A photo's age at search time is probe_age - photo_age, so the\nweights are computed per probe (in deployment: years since the photo date).\nVariants: strategy in {max, quality_weighted_mean} x tau in {none, 2, 5, 10} years\n(services/template_matcher: weights exp(-years/tau); for max a penalty of\nrecency_penalty * (1 - weight)). Threshold per variant at FPIR = 1% on tune, FNIR on test,\nbootstrap CI over subjects. A variant is shipped only if its test FNIR CI lies entirely below\nthe no-recency baseline of the same strategy.",
+  "results": {
+    "max": {
+      "None": {
+        "threshold_fpir1_tune": 0.356721,
+        "test_fnir": 0.008772,
+        "test_fnir_ci": [
+          0.0,
+          0.029059
+        ],
+        "test_fpir": 0.006818,
+        "test_rank1": 1.0
+      },
+      "2": {
+        "threshold_fpir1_tune": 0.334931,
+        "test_fnir": 0.04386,
+        "test_fnir_ci": [
+          0.0,
+          0.106468
+        ],
+        "test_fpir": 0.009545,
+        "test_rank1": 1.0
+      },
+      "5": {
+        "threshold_fpir1_tune": 0.344192,
+        "test_fnir": 0.035088,
+        "test_fnir_ci": [
+          0.0,
+          0.082641
+        ],
+        "test_fpir": 0.008636,
+        "test_rank1": 1.0
+      },
+      "10": {
+        "threshold_fpir1_tune": 0.345754,
+        "test_fnir": 0.035088,
+        "test_fnir_ci": [
+          0.0,
+          0.082641
+        ],
+        "test_fpir": 0.007727,
+        "test_rank1": 1.0
+      }
+    },
+    "quality_weighted_mean": {
+      "None": {
+        "threshold_fpir1_tune": 0.353057,
+        "test_fnir": 0.026316,
+        "test_fnir_ci": [
+          0.0,
+          0.059085
+        ],
+        "test_fpir": 0.005,
+        "test_rank1": 1.0
+      },
+      "2": {
+        "threshold_fpir1_tune": 0.334931,
+        "test_fnir": 0.026316,
+        "test_fnir_ci": [
+          0.0,
+          0.069601
+        ],
+        "test_fpir": 0.007727,
+        "test_rank1": 1.0
+      },
+      "5": {
+        "threshold_fpir1_tune": 0.353057,
+        "test_fnir": 0.008772,
+        "test_fnir_ci": [
+          0.0,
+          0.029059
+        ],
+        "test_fpir": 0.005455,
+        "test_rank1": 1.0
+      },
+      "10": {
+        "threshold_fpir1_tune": 0.353057,
+        "test_fnir": 0.008772,
+        "test_fnir_ci": [
+          0.0,
+          0.029059
+        ],
+        "test_fpir": 0.005455,
+        "test_rank1": 1.0
+      }
+    }
+  },
+  "decision": {
+    "max": {
+      "ship": false,
+      "taus_clearly_better": [],
+      "rule": "ship only if the variant's whole test FNIR CI is below the baseline FNIR"
+    },
+    "quality_weighted_mean": {
+      "ship": false,
+      "taus_clearly_better": [],
+      "rule": "ship only if the variant's whole test FNIR CI is below the baseline FNIR"
+    }
+  },
+  "sizes": {
+    "tune": {
+      "n_gallery_subjects": 29,
+      "n_mated_probes": 104
+    },
+    "test": {
+      "n_gallery_subjects": 29,
+      "n_mated_probes": 114
+    }
+  },
+  "adapter": "not attempted: needs CACD (~160k images, ~15 h of CPU embedding here) for identity-disjoint training; see docs/EVALUATION.md"
+}

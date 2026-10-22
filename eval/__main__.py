@@ -24,6 +24,7 @@ EXPERIMENTS = {
     "label_noise": "eval.protocols.label_noise",
     "age_gap": "eval.protocols.age_gap",
     "multi_template": "eval.protocols.multi_template",
+    "age_mitigation": "eval.protocols.age_mitigation",
     "smoke": "eval.protocols.smoke",
 }
 

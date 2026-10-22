@@ -65,6 +65,7 @@
                     <p class="mb-1 small text-muted">
                         <i class="bi bi-geo-alt-fill"></i> Sighted at: <strong>{{ alert.location|title }}</strong> | 
                         <i class="bi bi-cpu-fill"></i> <strong>{{ scores.score_line(alert, alert.confidence) }}</strong>
+                        {% if alert.age_warning %}<br><span class="text-warning-emphasis"><i class="bi bi-hourglass-split"></i> {{ alert.age_warning }}</span>{% endif %}
                     </p>
                     <div class="small text-muted italic">Reported by {{ alert.submitted_by }} on {{ alert.date_detected }}</div>
                 </div>

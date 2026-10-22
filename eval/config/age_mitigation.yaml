@@ -1,0 +1,9 @@
+# Recency weighting of reference photos on FG-NET (Task 3)
+experiment: age_mitigation
+max_photos: 5
+n_boot: 500
+identity_aliases:
+  John_Gruden: Jon_Gruden
+  Stephen_Ebberharter: Stephan_Eberharter
+  Noer_Moeis: Noer_Muis
+seed: 0
