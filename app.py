@@ -78,6 +78,11 @@ app.config.update(
 )
 csrf = CSRFProtect(app)
 
+# ZIPNET public-record sync: admin status/controls only. The worker is a separate process
+# (see zipnet_worker.py); importing the app never starts it.
+from blueprints.zipnet_sync import bp as zipnet_sync_bp  # noqa: E402
+app.register_blueprint(zipnet_sync_bp)
+
 
 def load_calibrator(path):
     """Optional score calibrator. Missing or unreadable file -> None (the UI then shows raw similarity only)."""
@@ -1013,4 +1018,8 @@ def view_logs():
 
 
 if __name__ == "__main__":
+    # Development entry point only: Gunicorn imports `app` and never reaches this block, so a web
+    # worker can never spawn a duplicate sync worker. Docker runs the worker as its own service.
+    from services.zipnet_supervisor import autostart_if_enabled
+    autostart_if_enabled()
     app.run(debug=config.DEBUG, use_reloader=False)

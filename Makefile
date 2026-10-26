@@ -3,7 +3,7 @@ PYTHON ?= python
 VENV ?= .venv
 BIN := $(VENV)/bin
 
-.PHONY: setup init run clean reset-data eval-data eval-all eval-report eval-regress eval-regress-smoke
+.PHONY: setup init run zipnet-worker zipnet-status clean reset-data eval-data eval-all eval-report eval-regress eval-regress-smoke
 
 setup:
 	$(PYTHON) -m venv $(VENV)
@@ -17,6 +17,13 @@ init:
 
 run:
 	$(BIN)/python app.py
+
+# ZIPNET sync worker on its own (`make run` already starts it when ZIPNET_SYNC_ENABLED=1)
+zipnet-worker:
+	$(BIN)/python zipnet_worker.py
+
+zipnet-status:
+	$(BIN)/python zipnet_worker.py --status
 
 # Remove caches only; your data is untouched.
 clean:

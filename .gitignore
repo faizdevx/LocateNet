@@ -37,3 +37,8 @@ uploads/
 # Evaluation datasets and cached embeddings (never commit)
 data/
 eval/cache/
+
+# SQLite write-ahead log / shared-memory files (ZIPNET sync database runs in WAL mode)
+*.db-wal
+*.db-shm
+*.db-journal

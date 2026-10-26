@@ -41,6 +41,13 @@ def bootstrap_admin():
     finally:
         conn.close()
 
+def init_zipnet_store():
+    """Create or upgrade the separate ZIPNET database (safe to repeat; never touches the main tables)."""
+    from services import zipnet_store
+    version = zipnet_store.migrate()
+    print(f"ZIPNET database ready (schema v{version}) at {zipnet_store.db_path()}")
+
+
 def init_vector_index():
     """Create (or rebuild) the FAISS index from the active cases. Loads no AI models."""
     count = rebuild_face_index(SearchService())
@@ -48,4 +55,5 @@ def init_vector_index():
 
 if __name__ == "__main__":
     bootstrap_admin()
+    init_zipnet_store()
     init_vector_index()

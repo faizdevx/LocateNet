@@ -1,21 +1,49 @@
+x-locatenet-build: &locatenet-build
+  context: .
+  args:
+    INSTALL_VIDEO: "0"   # set to "1" to include video upload support
+
 services:
   locatenet:
-    build:
-      context: .
-      args:
-        INSTALL_VIDEO: "0"   # set to "1" to include video upload support
+    build: *locatenet-build
+    image: locatenet:latest
     ports:
       - "5000:5000"
     env_file:
       - .env
     environment:
       LOCATENET_DB: /app/data/database.db
+      ZIPNET_DB: /app/data/zipnet_external.db
+      # Gunicorn never starts the sync worker; the `zipnet-worker` service below owns it.
+      ZIPNET_AUTOSTART_WORKER: "0"
     volumes:
       - locatenet_data:/app/data
       - locatenet_resources:/app/resources
       - locatenet_uploads:/app/uploads
       - locatenet_vectors:/app/vector_db/storage
       - locatenet_models:/home/app/.insightface
+    restart: unless-stopped
+
+  # ZIPNET sync worker: exactly one instance (it also takes a database lease, so a second copy would exit).
+  # Starts automatically with `docker compose up`; with ZIPNET_SYNC_ENABLED=0 in .env it idles and makes no requests.
+  zipnet-worker:
+    build: *locatenet-build
+    image: locatenet:latest
+    command: ["python", "zipnet_worker.py"]
+    env_file:
+      - .env
+    environment:
+      LOCATENET_DB: /app/data/database.db
+      ZIPNET_DB: /app/data/zipnet_external.db
+    volumes:
+      - locatenet_data:/app/data
+    healthcheck:
+      test: ["CMD", "python", "zipnet_worker.py", "--healthcheck"]
+      interval: 60s
+      timeout: 15s
+      retries: 3
+      start_period: 30s
+    stop_grace_period: 40s   # SIGTERM -> finish the current page -> clean exit
     restart: unless-stopped
 
 volumes:

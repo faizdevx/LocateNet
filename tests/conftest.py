@@ -151,3 +151,16 @@ def db_rows(query, params=()):
         return conn.execute(query, params).fetchall()
     finally:
         conn.close()
+
+
+# --- ZIPNET sync: each test gets its own throwaway database file --------------------------------------
+@pytest.fixture
+def zdb(tmp_path, monkeypatch):
+    import config
+
+    path = str(tmp_path / "zipnet_test.db")
+    monkeypatch.setattr(config, "ZIPNET_DB_PATH", path)
+    from services import zipnet_store
+
+    zipnet_store.migrate()
+    return path
