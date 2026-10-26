@@ -140,3 +140,6 @@ ZIPNET_FAILURE_COOLDOWN_SECONDS = max(5, _env_int("ZIPNET_FAILURE_COOLDOWN_SECON
 ZIPNET_BLOCKED_COOLDOWN_SECONDS = max(60, _env_int("ZIPNET_BLOCKED_COOLDOWN_SECONDS", 6 * 3600))
 # Seconds a stopping `python app.py` waits for the worker to finish its current page.
 ZIPNET_SHUTDOWN_GRACE_SECONDS = max(1, _env_int("ZIPNET_SHUTDOWN_GRACE_SECONDS", 20))
+# Show imported ZIPNET missing-person records on a public panel (/zipnet-records), like the case registry.
+# 0 = only logged-in users can open it.
+ZIPNET_PANEL_PUBLIC = _env_bool("ZIPNET_PANEL_PUBLIC", True)

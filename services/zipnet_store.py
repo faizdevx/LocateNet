@@ -157,6 +157,14 @@ MIGRATIONS: list[tuple[int, list[str]]] = [
     ),
 ]
 
+MIGRATIONS.append((
+    2,
+    [
+        # Public missing-person panel: filter by section + status, newest first.
+        "CREATE INDEX IF NOT EXISTS ix_zipnet_records_panel ON zipnet_records (section, status, source_created_date DESC)",
+    ],
+))
+
 SCHEMA_VERSION = MIGRATIONS[-1][0]
 
 SECTIONS = (
@@ -528,6 +536,67 @@ def search_records(conn: sqlite3.Connection, *, section: str | None = None, q: s
         d["image_paths"] = json.loads(d["image_paths"])
         out.append(d)
     return out
+
+
+PANEL_STATUS = {"open": "Untraced", "traced": "Traced"}
+COUNT_CAP = 10_000
+
+
+def _like(value: str) -> str:
+    return "%" + value.lower().replace("\\", "\\\\").replace("%", r"\%").replace("_", r"\_") + "%"
+
+
+def panel_query(conn: sqlite3.Connection, *, section: str = "missing_persons", q: str | None = None,
+                state: str | None = None, status: str = "open", photo_only: bool = False, sex: str | None = None,
+                limit: int = 24, offset: int = 0) -> dict[str, Any]:
+    """Records for the public missing-person panel. Allow-listed columns only; the total is capped for speed."""
+    where, params = ["section=?"], [section]
+    if status in PANEL_STATUS:
+        where.append("status=? COLLATE NOCASE")
+        params.append(PANEL_STATUS[status])
+    if state:
+        where.append("state=? COLLATE NOCASE")
+        params.append(state)
+    if sex:
+        where.append("sex=? COLLATE NOCASE")
+        params.append(sex)
+    if photo_only:
+        where.append("image_paths != '[]'")
+    if q:
+        pat = _like(q)
+        where.append("(name_search LIKE ? ESCAPE '\\' OR LOWER(published_location) LIKE ? ESCAPE '\\' "
+                     "OR LOWER(police_station) LIKE ? ESCAPE '\\' OR LOWER(district) LIKE ? ESCAPE '\\')")
+        params += [pat, pat, pat, pat]
+    clause = " AND ".join(where)
+    cols = ("id, source_id, title, name, sex, status, reported_date, source_created_date, state, district, "
+            "police_station, published_location, image_paths, source_listing_url, first_seen_at, "
+            "json_extract(attributes, '$.birth_year_reported') AS birth_year")
+    rows = conn.execute(
+        f"SELECT {cols} FROM zipnet_records WHERE {clause} "  # noqa: S608 - fixed fragments, bound parameters
+        "ORDER BY source_created_date DESC, source_id_num DESC LIMIT ? OFFSET ?", [*params, limit, offset]).fetchall()
+    total = conn.execute(
+        f"SELECT COUNT(*) FROM (SELECT 1 FROM zipnet_records WHERE {clause} LIMIT ?)",  # noqa: S608
+        [*params, COUNT_CAP + 1]).fetchone()[0]
+    items = []
+    for r in rows:
+        d = dict(r)
+        d["image_paths"] = json.loads(d["image_paths"])
+        items.append(d)
+    return {"items": items, "total": min(total, COUNT_CAP), "total_capped": total > COUNT_CAP}
+
+
+def panel_facts(conn: sqlite3.Connection, section: str = "missing_persons") -> dict[str, Any]:
+    cp = get_checkpoint(conn, section)
+    newest = conn.execute("SELECT COALESCE(MAX(id), 0) FROM zipnet_records WHERE section=?", (section,)).fetchone()[0]
+    return {"indexed": cp["indexed_count"], "source_total": cp["source_total"],
+            "backfill_complete": bool(cp["backfill_complete"]), "last_success_at": cp["last_success_at"],
+            "newest_id": newest}
+
+
+def states_for_panel(conn: sqlite3.Connection, section: str = "missing_persons") -> list[str]:
+    rows = conn.execute("SELECT state FROM zipnet_records WHERE section=? AND state IS NOT NULL "
+                        "GROUP BY state ORDER BY COUNT(*) DESC LIMIT 60", (section,)).fetchall()
+    return [r[0] for r in rows]
 
 
 def link_record_to_case(conn: sqlite3.Connection, record_id: int, case_id: int, linked_by: str,

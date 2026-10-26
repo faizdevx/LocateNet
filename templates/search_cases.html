@@ -181,6 +181,12 @@
         <a href="/" class="btn-back">← Back to Portal</a>
     </div>
 
+    {% if zipnet_panel %}
+    <div style="display:flex;gap:8px;margin-bottom:16px">
+        <a href="/search" style="padding:9px 18px;border-radius:20px;text-decoration:none;font-weight:600;font-size:14px;background:var(--primary);color:#fff">LocateNet cases</a>
+        <a href="/zipnet-records" style="padding:9px 18px;border-radius:20px;text-decoration:none;font-weight:600;font-size:14px;background:#fff;color:var(--gray);box-shadow:0 1px 2px rgba(0,0,0,.1)">From ZIPNET (live)</a>
+    </div>
+    {% endif %}
     <div class="search-container">
         <input type="text" id="searchInput" placeholder="Search by name or city..." onkeyup="filterCases()">
     </div>

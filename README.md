@@ -429,6 +429,25 @@ The admin dashboard links to it:
 
 Only counts and progress are shown (no personal data). Interrupting and restarting resumes from these offsets.
 
+### Missing-person panel with photos (`/zipnet-records`)
+
+Imported missing-person records appear automatically in a public panel next to the case registry, newest
+first, with the photograph published with each report. The portal home page and the registry get a
+"From ZIPNET (live)" tab as soon as the sync is on.
+
+- **Live:** the header shows how many records are imported (of the total on ZIPNET) and when the last page was committed. The page polls every 20 s and offers a "new records arrived, show them" button, so new reports show up while the worker runs.
+- **Photos:** streamed from ZIPNET for display only (small in-memory cache, nothing written to disk, never passed to face matching). A missing or unreachable photo shows "Photo unavailable"; no other image is ever substituted.
+- **Filters:** search by name, place, police station or district, state, sex, status (still missing / traced / all) and "with photo only".
+- **Labelled honestly:** every card says "Photo as published on ZIPNET" and links to the source; the page states these are external, unverified records, not LocateNet cases. "Report a sighting" uses the normal human-reviewed flow.
+- Set `ZIPNET_PANEL_PUBLIC=0` to require login for the panel.
+
+![Missing-person panel with imported ZIPNET records and photos](docs/screenshots/zipnet-missing-panel.png)
+
+*The screenshot uses synthetic demo people and generated avatars served by a local stub of ZIPNET, so no real person's
+name or face is published in this repository. With the real portal the same cards show the real published records.*
+
+![Portal home with the ZIPNET button](docs/screenshots/portal-zipnet-button.png)
+
 Details: [docs/ZIPNET_SYNC.md](docs/ZIPNET_SYNC.md) and [docs/ZIPNET_SOURCE_INVENTORY.md](docs/ZIPNET_SOURCE_INVENTORY.md).
 
 ---
