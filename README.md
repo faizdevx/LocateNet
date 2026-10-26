@@ -413,6 +413,22 @@ progress to administrators at **Admin → ZIPNET sync** (`/admin/zipnet-sync`).
 - Needs outbound HTTPS to `ZIPNET_BASE_URL` (default request delay 2 s); the full backfill takes about three days. `ZIPNET_SYNC_ENABLED=0` makes no requests.
 - Operate: `python zipnet_worker.py --status`, `POST /admin/zipnet-sync/start|stop`, `python zipnet_worker.py` (worker only).
 
+### Live retrieval in action
+
+Real-time retrieval from the live ZIPNET portal, captured from a running instance (`python app.py` with
+`ZIPNET_SYNC_ENABLED=1`) a few minutes after a fresh install. The worker started by itself and fetched
+5,700+ records across all six sections without blocking the web app. Each section shows its own
+checkpoint ("offset N of total, not complete"), and the job table lists every committed turn. The page
+refreshes every 5 seconds, so the counters grow while you watch.
+
+![ZIPNET sync status page during a live backfill](docs/screenshots/zipnet-sync-status.png)
+
+The admin dashboard links to it:
+
+![Admin dashboard with the ZIPNET sync button](docs/screenshots/admin-dashboard-link.png)
+
+Only counts and progress are shown (no personal data). Interrupting and restarting resumes from these offsets.
+
 Details: [docs/ZIPNET_SYNC.md](docs/ZIPNET_SYNC.md) and [docs/ZIPNET_SOURCE_INVENTORY.md](docs/ZIPNET_SOURCE_INVENTORY.md).
 
 ---
