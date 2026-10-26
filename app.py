@@ -82,6 +82,8 @@ csrf = CSRFProtect(app)
 # (see zipnet_worker.py); importing the app never starts it.
 from blueprints.zipnet_sync import bp as zipnet_sync_bp  # noqa: E402
 app.register_blueprint(zipnet_sync_bp)
+from blueprints.zipnet_panel import bp as zipnet_panel_bp  # noqa: E402
+app.register_blueprint(zipnet_panel_bp)
 
 
 def load_calibrator(path):
@@ -350,6 +352,12 @@ def create_map():
 @app.route("/")
 def index():
     return render_template("index.html")
+
+
+@app.context_processor
+def _zipnet_panel_flag():
+    # Tabs/buttons to the imported-records panel appear only when the sync is switched on.
+    return {"zipnet_panel": config.ZIPNET_SYNC_ENABLED and (config.ZIPNET_PANEL_PUBLIC or "user" in session)}
 
 @app.route("/search")
 def search_cases():

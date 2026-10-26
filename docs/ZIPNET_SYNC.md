@@ -86,6 +86,16 @@ releases the lease and records `stopped`. The next start resumes automatically.
 A second worker exits with code 3. A crashed worker's lease expires and can be taken over. Gunicorn
 workers never start a worker, and Docker runs exactly one `zipnet-worker` service.
 
+## Missing-person panel
+
+`/zipnet-records` lists imported `missing_persons` records (default: status Untraced, newest first, 24 per page)
+with the first published photograph, filters, source links and a live counter. Routes: `GET /zipnet-records`,
+`GET /zipnet-records/photo/<id>` (display-only proxy, host fixed by `ZIPNET_BASE_URL`, path validated, jpeg/png,
+max 2 MB, 200-item in-memory LRU, no outbound request when sync is disabled) and `GET /zipnet-records/updates`
+(JSON used by the page to announce new records). `ZIPNET_PANEL_PUBLIC=0` requires login. Schema v2 adds the index
+`ix_zipnet_records_panel`; existing databases upgrade automatically and keep their data. Result counts are capped
+at 10,000 for speed ("10,000+").
+
 ## Commands
 
 ```bash

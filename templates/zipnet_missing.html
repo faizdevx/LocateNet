@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Missing Persons from ZIPNET | LocateNet</title>
+    <style>
+        :root { --primary:#1a73e8; --danger:#d93025; --success:#1e8e3e; --gray:#5f6368; --light:#f1f3f4; --amber:#b06000; }
+        body { font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif; background:var(--light); margin:0; padding:20px; color:#3c4043; }
+        .container { max-width:1200px; margin:0 auto; }
+        .header { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:16px; background:#fff; padding:20px; border-radius:8px; box-shadow:0 1px 3px rgba(0,0,0,.1); }
+        .header h1 { margin:0; font-size:24px; color:var(--primary); }
+        .tabs { display:flex; gap:8px; margin-bottom:16px; }
+        .tab { padding:9px 18px; border-radius:20px; text-decoration:none; font-weight:600; font-size:14px; background:#fff; color:var(--gray); box-shadow:0 1px 2px rgba(0,0,0,.1); }
+        .tab.active { background:var(--primary); color:#fff; }
+        .btn-back { text-decoration:none; color:var(--primary); font-weight:500; }
+        .notice { background:#fef7e0; border:1px solid #f9d77e; color:#5f4300; padding:12px 16px; border-radius:8px; font-size:13.5px; margin-bottom:16px; line-height:1.5; }
+        .live { display:flex; flex-wrap:wrap; gap:14px; align-items:center; background:#fff; padding:12px 18px; border-radius:8px; margin-bottom:16px; font-size:13.5px; box-shadow:0 1px 2px rgba(0,0,0,.08); }
+        .dot { width:9px; height:9px; border-radius:50%; background:var(--success); display:inline-block; margin-right:6px; animation:pulse 1.8s infinite; }
+        .dot.off { background:#9aa0a6; animation:none; }
+        @keyframes pulse { 50% { opacity:.25; } }
+        #fresh { display:none; background:var(--primary); color:#fff; border:0; padding:6px 14px; border-radius:16px; cursor:pointer; font-weight:600; }
+        form.filters { display:flex; flex-wrap:wrap; gap:10px; margin-bottom:20px; background:#fff; padding:14px; border-radius:8px; box-shadow:0 1px 2px rgba(0,0,0,.08); }
+        form.filters input[type=text], form.filters select { padding:10px 14px; border:1px solid #dadce0; border-radius:20px; font-size:14px; }
+        form.filters input[type=text] { flex:1; min-width:220px; }
+        form.filters button { padding:10px 22px; border:0; border-radius:20px; background:var(--primary); color:#fff; font-weight:600; cursor:pointer; }
+        form.filters label { display:flex; align-items:center; gap:6px; font-size:14px; }
+        .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); gap:22px; }
+        .card { background:#fff; border-radius:12px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,.1); display:flex; flex-direction:column; }
+        .photo { height:250px; background:#e8eaed; position:relative; display:flex; align-items:center; justify-content:center; color:var(--gray); font-size:13px; text-align:center; }
+        .photo img { width:100%; height:100%; object-fit:cover; position:absolute; inset:0; }
+        .badge { position:absolute; top:12px; right:12px; padding:4px 11px; border-radius:20px; font-size:11px; font-weight:700; color:#fff; text-transform:uppercase; letter-spacing:.5px; z-index:2; }
+        .b-open { background:var(--danger); } .b-traced { background:var(--success); } .b-other { background:var(--gray); }
+        .src { position:absolute; left:10px; bottom:10px; background:rgba(32,33,36,.82); color:#fff; font-size:10.5px; padding:3px 8px; border-radius:6px; z-index:2; }
+        .body { padding:16px 18px; flex-grow:1; }
+        .body h3 { margin:0 0 10px; font-size:18px; color:#202124; }
+        .row { font-size:13.5px; margin-bottom:6px; } .row b { color:var(--gray); font-weight:600; }
+        .actions { padding:12px 18px; border-top:1px solid #f1f3f4; background:#fafafa; display:flex; gap:8px; flex-wrap:wrap; }
+        .actions a { text-decoration:none; font-size:13px; font-weight:600; padding:7px 12px; border-radius:6px; }
+        .a-primary { background:var(--primary); color:#fff; } .a-ghost { border:1px solid #dadce0; color:var(--primary); }
+        .empty { text-align:center; padding:70px 20px; color:var(--gray); background:#fff; border-radius:8px; }
+        .pager { display:flex; justify-content:center; align-items:center; gap:14px; margin:26px 0; font-size:14px; }
+        .pager a { text-decoration:none; color:var(--primary); font-weight:600; padding:8px 16px; border:1px solid #dadce0; border-radius:20px; background:#fff; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>Missing Persons Registry</h1>
+        <a href="/" class="btn-back">← Back to Portal</a>
+    </div>
+    <div class="tabs">
+        <a class="tab" href="/search">LocateNet cases</a>
+        <a class="tab active" href="/zipnet-records">From ZIPNET (live)</a>
+    </div>
+
+    <div class="notice" role="note">
+        <strong>External public records.</strong> These reports are published by the ZIPNET portal and copied here for convenience.
+        They are <strong>not LocateNet cases</strong>, are not verified by LocateNet and may be out of date. Photographs are the ones
+        published with the report, not current photographs. If you have seen a person, use <em>Report a sighting</em> or contact the
+        police station named on the record.
+    </div>
+
+    <div class="live" id="live" data-newest="{{ shown_newest_id }}">
+        <span><span class="dot {{ '' if sync_enabled else 'off' }}" id="dot"></span>
+            {% if sync_enabled %}Live sync on{% else %}Sync is switched off{% endif %}</span>
+        <span><strong id="indexed">{{ '{:,}'.format(facts.indexed) }}</strong>
+            record{{ '' if facts.indexed == 1 else 's' }} imported{% if facts.source_total %} of {{ '{:,}'.format(facts.source_total) }} on ZIPNET{% endif %}
+            {% if not facts.backfill_complete and facts.indexed %}<span title="Older records are still being imported">(import in progress)</span>{% endif %}</span>
+        <span>Last updated: <span id="updated">{{ facts.last_success_at[:19].replace('T',' ') + ' UTC' if facts.last_success_at else 'never' }}</span></span>
+        <button id="fresh" type="button">New records arrived — show them</button>
+    </div>
+
+    <form class="filters" method="get" action="/zipnet-records">
+        <input type="text" name="q" value="{{ q }}" placeholder="Search name, place, police station, district…" maxlength="100" aria-label="Search">
+        <select name="state" aria-label="State">
+            <option value="">All states</option>
+            {% for s in states %}<option value="{{ s }}" {{ 'selected' if s|lower == state|lower }}>{{ s }}</option>{% endfor %}
+        </select>
+        <select name="sex" aria-label="Sex">
+            <option value="">Any sex</option>
+            {% for s in ['Male','Female','Other'] %}<option value="{{ s }}" {{ 'selected' if s == sex }}>{{ s }}</option>{% endfor %}
+        </select>
+        <select name="status" aria-label="Status">
+            <option value="open" {{ 'selected' if status == 'open' }}>Still missing (Untraced)</option>
+            <option value="traced" {{ 'selected' if status == 'traced' }}>Traced</option>
+            <option value="all" {{ 'selected' if status == 'all' }}>All</option>
+        </select>
+        <label><input type="checkbox" name="photo" value="1" {{ 'checked' if photo_only }}> With photo</label>
+        <button type="submit">Search</button>
+    </form>
+
+    {% if error %}
+        <div class="empty">{{ error }}</div>
+    {% elif not cards %}
+        <div class="empty">
+            {% if facts.indexed == 0 %}No ZIPNET records have been imported yet. They appear here automatically while the sync worker runs.
+            {% else %}No imported records match this search.{% endif %}
+        </div>
+    {% else %}
+        <p style="color:var(--gray);font-size:14px">{{ '{:,}'.format(total) }}{{ '+' if total_capped }} record{{ '' if total == 1 else 's' }}, newest first</p>
+        <div class="grid">
+        {% for c in cards %}
+            <div class="card">
+                <div class="photo">
+                    <span class="badge {{ 'b-open' if c.status == 'Untraced' else 'b-traced' if c.status == 'Traced' else 'b-other' }}">{{ 'Missing' if c.status == 'Untraced' else c.status or 'Status not published' }}</span>
+                    <span>Photo unavailable</span>
+                    {% if c.has_photo %}
+                    <img src="{{ url_for('zipnet_panel.photo', record_id=c.id) }}" loading="lazy" alt="Photo published with the report of {{ c.name }}" onerror="this.remove()">
+                    <span class="src">Photo as published on ZIPNET</span>
+                    {% endif %}
+                </div>
+                <div class="body">
+                    <h3>{{ c.name }}</h3>
+                    {% if c.age or c.sex %}<div class="row"><b>Person:</b> {{ c.sex or '' }}{{ ', ' if c.sex and c.age }}{{ c.age or '' }}</div>{% endif %}
+                    <div class="row"><b>Missing since:</b> {{ c.missing_since or 'not published' }}</div>
+                    <div class="row"><b>Reported place:</b> {{ c.place or 'not published' }}</div>
+                    <div class="row"><b>Police station:</b> {{ c.police_station or 'not published' }}{% if c.district %}, {{ c.district }}{% endif %}{% if c.state %}, {{ c.state }}{% endif %}</div>
+                    <div class="row"><b>On ZIPNET:</b> {{ c.entered_on or '—' }} <span style="color:#9aa0a6">· ref {{ c.source_id }}</span></div>
+                </div>
+                <div class="actions">
+                    <a class="a-primary" href="/report_sighting">Report a sighting</a>
+                    <a class="a-ghost" href="{{ c.source_url }}" target="_blank" rel="noopener noreferrer nofollow">Source: ZIPNET ↗</a>
+                </div>
+            </div>
+        {% endfor %}
+        </div>
+        <div class="pager">
+            {% set base = {'q': q, 'state': state, 'sex': sex, 'status': status, 'photo': '1' if photo_only else ''} %}
+            {% if page > 1 %}<a href="{{ url_for('zipnet_panel.panel', page=page-1, **base) }}">← Previous</a>{% endif %}
+            <span>Page {{ page }} of {{ pages }}</span>
+            {% if page < pages %}<a href="{{ url_for('zipnet_panel.panel', page=page+1, **base) }}">Next →</a>{% endif %}
+        </div>
+    {% endif %}
+</div>
+<script>
+(function () {
+    const live = document.getElementById('live'); let newest = Number(live.dataset.newest) || 0;
+    const fresh = document.getElementById('fresh');
+    fresh.onclick = () => location.reload();
+    async function poll() {
+        try {
+            const r = await fetch('/zipnet-records/updates?newest=' + newest, {headers: {'Accept': 'application/json'}});
+            if (!r.ok) return; const d = await r.json();
+            document.getElementById('indexed').textContent = Number(d.indexed).toLocaleString();
+            if (d.last_success_at) document.getElementById('updated').textContent = d.last_success_at.slice(0, 19).replace('T', ' ') + ' UTC';
+            if (newest && d.new_records > 0) { fresh.style.display = 'inline-block'; fresh.textContent = d.new_records + ' new record' + (d.new_records > 1 ? 's' : '') + ' arrived — show them'; }
+        } catch (e) { /* offline: keep the page as is */ }
+    }
+    setInterval(poll, 20000);
+})();
+</script>
+</body>
+</html>
