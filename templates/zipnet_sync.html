@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>ZIPNET sync | LocateNet</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>body { background: #f5f7fb; } .progress { height: .6rem; }</style>
+</head>
+<body>
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h2 class="mb-0">ZIPNET sync</h2>
+            <div class="text-muted small">Imports public ZIPNET records into a separate dataset. Imported records are not LocateNet cases,
+                are never enrolled in face matching automatically, and never establish identity.</div>
+        </div>
+        <a href="/dashboard" class="btn btn-outline-secondary">Back to Dashboard</a>
+    </div>
+
+    <div id="alerts"></div>
+
+    <div class="card shadow-sm mb-3"><div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <div>
+            <div>Worker: <strong id="worker-state">…</strong> <span class="text-muted small" id="worker-detail"></span></div>
+            <div class="text-muted small">Last successful sync: <span id="last-ok">…</span> · incremental every <span id="interval">…</span> min</div>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-primary" id="btn-start">Start / sync now</button>
+            <button class="btn btn-outline-danger" id="btn-stop">Stop at next page</button>
+        </div>
+    </div></div>
+
+    <div class="card shadow-sm mb-3"><div class="table-responsive">
+        <table class="table align-middle mb-0">
+            <thead><tr><th>Section</th><th>Phase</th><th style="min-width:200px">Historical backfill</th><th>Indexed</th><th>Last result</th></tr></thead>
+            <tbody id="sections"></tbody>
+        </table>
+    </div></div>
+
+    <h5>Recent jobs</h5>
+    <div class="card shadow-sm"><div class="table-responsive">
+        <table class="table table-sm mb-0">
+            <thead><tr><th>#</th><th>Section</th><th>Mode</th><th>Status</th><th>Pages</th><th>New</th><th>Updated</th><th>Failed</th><th>Started (UTC)</th><th>Note</th></tr></thead>
+            <tbody id="jobs"></tbody>
+        </table>
+    </div></div>
+</div>
+<script>
+const csrf = document.querySelector('meta[name="csrf-token"]').content;
+const el = (tag, text, cls) => { const e = document.createElement(tag); if (text !== undefined) e.textContent = text; if (cls) e.className = cls; return e; };
+const fmt = n => (n === null || n === undefined) ? '—' : Number(n).toLocaleString();
+async function api(path, method) {
+    const r = await fetch('/admin/zipnet-sync' + path, {method: method || 'GET', headers: {'X-CSRFToken': csrf, 'Accept': 'application/json'}});
+    let body = {}; try { body = await r.json(); } catch (e) {}
+    if (!r.ok) throw new Error(body.error || ('HTTP ' + r.status));
+    return body;
+}
+function alertBox(msgs, cls) {
+    const box = document.getElementById('alerts'); box.replaceChildren();
+    msgs.forEach(m => { const d = el('div', m, 'alert alert-' + cls + ' py-2'); box.appendChild(d); });
+}
+function render(s) {
+    document.getElementById('worker-state').textContent = s.worker.alive ? s.worker.state : 'not running';
+    document.getElementById('worker-detail').textContent = s.worker.current_section ? `(${s.worker.current_section}, ${s.worker.current_mode})` : (s.stop_requested ? (s.stop_acknowledged ? '(stop acknowledged)' : '(stop requested, waiting for the worker)') : '');
+    document.getElementById('last-ok').textContent = s.last_successful_sync_at || 'never';
+    document.getElementById('interval').textContent = s.interval_minutes;
+    alertBox(s.warnings, 'warning');
+    const tb = document.getElementById('sections'); tb.replaceChildren();
+    s.sections.forEach(x => {
+        const tr = el('tr');
+        tr.appendChild(el('td', x.label));
+        tr.appendChild(el('td', x.phase.replace(/_/g, ' ')));
+        const td = el('td'); const bar = el('div', undefined, 'progress'); const inner = el('div', undefined, 'progress-bar');
+        const pct = x.backfill_progress === null ? 0 : Math.round(x.backfill_progress * 1000) / 10;
+        inner.style.width = pct + '%'; bar.appendChild(inner); td.appendChild(bar);
+        td.appendChild(el('div', x.backfill_complete ? 'complete' : `offset ${fmt(x.backfill_offset)} of ${fmt(x.source_total)} (${pct}%) — not complete`, 'small text-muted'));
+        tr.appendChild(td);
+        tr.appendChild(el('td', fmt(x.indexed_records)));
+        const last = el('td'); last.appendChild(el('div', x.last_status || 'never run'));
+        if (x.warning) last.appendChild(el('div', x.warning, 'small text-danger'));
+        if (x.retry_after_seconds) last.appendChild(el('div', `retry in ${x.retry_after_seconds}s`, 'small text-muted'));
+        tr.appendChild(last);
+        tb.appendChild(tr);
+    });
+}
+function renderJobs(j) {
+    const tb = document.getElementById('jobs'); tb.replaceChildren();
+    j.jobs.forEach(x => {
+        const tr = el('tr');
+        [x.id, x.section, x.mode, x.status, x.pages, x.new_records, x.updated_records, x.failed_records, x.started_at, x.message || x.stop_reason || ''].forEach(v => tr.appendChild(el('td', v === null ? '' : String(v))));
+        tb.appendChild(tr);
+    });
+}
+async function refresh() {
+    try { render(await api('/status')); renderJobs(await api('/jobs?limit=15')); }
+    catch (e) { alertBox([e.message], 'danger'); }
+}
+async function act(path) {
+    try { render(await api(path, 'POST')); } catch (e) { alertBox([e.message], 'danger'); }
+}
+document.getElementById('btn-start').onclick = () => act('/start');
+document.getElementById('btn-stop').onclick = () => act('/stop');
+refresh(); setInterval(refresh, 5000);
+</script>
+</body>
+</html>

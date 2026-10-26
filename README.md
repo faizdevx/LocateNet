@@ -81,17 +81,20 @@ LocateNet
 ├── app.py                  Flask app and routes
 ├── config.py               Thresholds and settings (environment variables)
 ├── models.py               SQLite schema and queries
-├── init_system.py          Creates the database, admin user and empty vector index
+├── init_system.py          Creates the database, admin user, ZIPNET tables and empty vector index
+├── zipnet_worker.py        ZIPNET sync worker (started by app.py, or run on its own / in Docker)
 ├── clean_system.py         DESTRUCTIVE: wipes local data
 │
 ├── pipeline
 │   ├── detection_pipeline.py   Image pipeline
 │   ├── video_pipeline.py       Video pipeline (optional extras)
+│   ├── zipnet_pipeline.py      One checkpointed sync turn of one ZIPNET section
 │   └── scoring.py              Shared threshold and category logic
 │
 ├── services
 │   ├── face_service.py         InsightFace wrapper
 │   ├── alert_service.py        Hotspot rule
+│   ├── zipnet_*.py             ZIPNET sync: adapters (field allow-lists), scraper, store, scheduler, supervisor
 │   └── reid_service.py         Placeholder, disabled by default
 │
 ├── vector_db
@@ -105,6 +108,7 @@ LocateNet
 │   ├── protocols               verification, open-set, bias, robustness, quality, detection, latency
 │   ├── results / plots         Committed metric JSON and PNG plots (no images, no embeddings)
 │   └── cache                   Embedding cache (git-ignored)
+├── blueprints              zipnet_sync.py: admin status/control endpoints
 ├── models                  calibrator.json (score -> estimated likelihood)
 ├── scripts                 rebuild_index.py, download_models.py, get_eval_data.py, dev.ps1
 ├── templates               HTML templates
@@ -219,6 +223,10 @@ python scripts/download_models.py
 python app.py
 ```
 
+`python app.py` also starts the ZIPNET sync worker in the background when `ZIPNET_SYNC_ENABLED=1`
+(the default in `.env.example`). **That makes outbound HTTPS requests** to the ZIPNET portal; set it to
+`0` to disable. See [ZIPNET sync](#zipnet-public-record-sync).
+
 The app listens on http://127.0.0.1:5000. Without `LOCATENET_SECRET_KEY` it refuses to start,
 unless `FLASK_DEBUG=1` is set (then it uses a random key and sessions reset on restart).
 `use_reloader=False` is used so the AI model is not loaded twice.
@@ -235,7 +243,8 @@ docker compose run --rm locatenet python init_system.py
 ```
 
 The image runs `gunicorn -w 1 --threads 4` (one worker because the models are memory-heavy) and
-stores the database, media and vector index in named volumes. Set the build argument
+stores the database, media and vector index in named volumes. Compose also starts one
+`zipnet-worker` service (the ZIPNET sync) from the same image; Gunicorn never starts it. Set the build argument
 `INSTALL_VIDEO` to `"1"` in `docker-compose.yml` for video support.
 
 ### Tests
@@ -388,6 +397,39 @@ Settings are read from environment variables (or a `.env` file). See `.env.examp
 | `RETENTION_DAYS` | `90` | Deletion age for negative exemplars, QA samples and stored face embeddings |
 
 Uploads: images up to 10 MB (jpg, jpeg, png, webp), videos up to 100 MB (mp4, mov, avi).
+
+---
+
+## ZIPNET public-record sync
+
+A background worker imports the public records of the [ZIPNET portal](https://zipnet.delhipolice.gov.in/)
+(six sections, about 6.2 million records) into a **separate** SQLite file, first as a resumable historical
+backfill and then as recurring incremental updates. It starts automatically with `python app.py` (or as the
+`zipnet-worker` Docker service), resumes from its last committed checkpoint after any stop, and shows honest
+progress to administrators at **Admin → ZIPNET sync** (`/admin/zipnet-sync`).
+
+- Imported records are not cases: no face matching, no alerts, nothing marked found. Linking one to a case is an explicit administrator action.
+- Only allow-listed fields are read; phone numbers, addresses, family details, officer contacts and religion are never stored. Photos are not copied.
+- Needs outbound HTTPS to `ZIPNET_BASE_URL` (default request delay 2 s); the full backfill takes about three days. `ZIPNET_SYNC_ENABLED=0` makes no requests.
+- Operate: `python zipnet_worker.py --status`, `POST /admin/zipnet-sync/start|stop`, `python zipnet_worker.py` (worker only).
+
+### Live retrieval in action
+
+Real-time retrieval from the live ZIPNET portal, captured from a running instance (`python app.py` with
+`ZIPNET_SYNC_ENABLED=1`) a few minutes after a fresh install. The worker started by itself and fetched
+5,700+ records across all six sections without blocking the web app. Each section shows its own
+checkpoint ("offset N of total, not complete"), and the job table lists every committed turn. The page
+refreshes every 5 seconds, so the counters grow while you watch.
+
+![ZIPNET sync status page during a live backfill](docs/screenshots/zipnet-sync-status.png)
+
+The admin dashboard links to it:
+
+![Admin dashboard with the ZIPNET sync button](docs/screenshots/admin-dashboard-link.png)
+
+Only counts and progress are shown (no personal data). Interrupting and restarting resumes from these offsets.
+
+Details: [docs/ZIPNET_SYNC.md](docs/ZIPNET_SYNC.md) and [docs/ZIPNET_SOURCE_INVENTORY.md](docs/ZIPNET_SOURCE_INVENTORY.md).
 
 ---
 

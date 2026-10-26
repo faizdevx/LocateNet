@@ -100,3 +100,43 @@ DEBUG = _env_bool("FLASK_DEBUG", False)
 
 # SQLite database location (override to keep it on a mounted volume).
 DB_PATH = os.environ.get("LOCATENET_DB", os.path.join(BASE_DIR, "database.db"))
+
+# --- ZIPNET public-record ingestion (see docs/ZIPNET_SYNC.md) ---
+# Starting LocateNet with ZIPNET_SYNC_ENABLED=1 makes outbound HTTPS requests to ZIPNET_BASE_URL.
+# The code default is off so tests and CI never scrape; .env.example enables it for a normal setup.
+ZIPNET_SYNC_ENABLED = _env_bool("ZIPNET_SYNC_ENABLED", False)
+# `python app.py` launches the worker as a child process. Set 0 where the worker runs as its own
+# service (Docker Compose) or under a process manager.
+ZIPNET_AUTOSTART_WORKER = _env_bool("ZIPNET_AUTOSTART_WORKER", True)
+ZIPNET_BASE_URL = os.environ.get("ZIPNET_BASE_URL", "https://zipnet.delhipolice.gov.in")
+ZIPNET_SECTIONS = os.environ.get(
+    "ZIPNET_SECTIONS",
+    "missing_persons,unidentified_persons,unidentified_dead_bodies,stolen_vehicles,"
+    "unclaimed_seized_vehicles,missing_mobiles",
+)
+# Separate SQLite file so a multi-million-row import never contends with case registration.
+ZIPNET_DB_PATH = os.environ.get("ZIPNET_DB") or os.path.join(os.path.dirname(DB_PATH), "zipnet_external.db")
+ZIPNET_USER_AGENT = os.environ.get(
+    "ZIPNET_USER_AGENT", "LocateNet-ZIPNET-Sync/1.0 (public-record research; respects rate limits)")
+ZIPNET_PAGE_SIZE = max(10, min(100, _env_int("ZIPNET_PAGE_SIZE", 50)))
+ZIPNET_REQUEST_DELAY_SECONDS = max(0.5, _env_float("ZIPNET_REQUEST_DELAY_SECONDS", 2.0))
+ZIPNET_REQUEST_TIMEOUT_SECONDS = max(5.0, _env_float("ZIPNET_REQUEST_TIMEOUT_SECONDS", 30))
+ZIPNET_MAX_RETRIES = max(1, min(10, _env_int("ZIPNET_MAX_RETRIES", 4)))
+ZIPNET_BACKOFF_BASE_SECONDS = _env_float("ZIPNET_BACKOFF_BASE_SECONDS", 2)
+ZIPNET_BACKOFF_MAX_SECONDS = _env_float("ZIPNET_BACKOFF_MAX_SECONDS", 60)
+# Backfill is cut into turns of this many pages per section, rotated across sections so one huge
+# section cannot starve the others. It resumes from its checkpoint on the next turn.
+ZIPNET_PAGES_PER_TURN = max(1, _env_int("ZIPNET_PAGES_PER_TURN", 20))
+# Optional hard cap on total backfill pages per section (0 = unlimited). When reached, the section
+# is reported "incomplete (page limit)" and never marked complete.
+ZIPNET_BACKFILL_MAX_PAGES = max(0, _env_int("ZIPNET_BACKFILL_MAX_PAGES", 0))
+ZIPNET_INCREMENTAL_INTERVAL_MINUTES = max(1, _env_int("ZIPNET_INCREMENTAL_INTERVAL_MINUTES", 60))
+ZIPNET_INCREMENTAL_MAX_PAGES = max(1, _env_int("ZIPNET_INCREMENTAL_MAX_PAGES", 100))
+ZIPNET_INCREMENTAL_OVERLAP_DAYS = max(0, _env_int("ZIPNET_INCREMENTAL_OVERLAP_DAYS", 1))
+# Worker lease: another worker may take over only after this many seconds without a heartbeat.
+ZIPNET_LOCK_TTL_SECONDS = max(15, _env_int("ZIPNET_LOCK_TTL_SECONDS", 120))
+# After a section fails, wait this long (doubling per consecutive failure, capped) before retrying it.
+ZIPNET_FAILURE_COOLDOWN_SECONDS = max(5, _env_int("ZIPNET_FAILURE_COOLDOWN_SECONDS", 60))
+ZIPNET_BLOCKED_COOLDOWN_SECONDS = max(60, _env_int("ZIPNET_BLOCKED_COOLDOWN_SECONDS", 6 * 3600))
+# Seconds a stopping `python app.py` waits for the worker to finish its current page.
+ZIPNET_SHUTDOWN_GRACE_SECONDS = max(1, _env_int("ZIPNET_SHUTDOWN_GRACE_SECONDS", 20))
