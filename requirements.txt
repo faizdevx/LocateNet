@@ -12,3 +12,4 @@ folium==0.20.0
 bcrypt==5.0.0
 python-dotenv==1.2.4
 gunicorn==26.2.0; sys_platform != "win32"
+scrapling[fetchers]==0.5   # ZIPNET sync worker (plain HTTP via FetcherSession; stealth/browser features unused)

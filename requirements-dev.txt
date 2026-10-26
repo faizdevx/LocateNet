@@ -10,3 +10,5 @@ bcrypt==5.0.0
 python-dotenv==1.2.4
 pytest==9.1.1
 ruff==0.17.1
+PyYAML==6.0.3
+matplotlib==3.11.2   # /admin/model-health chart routes (app.py) are exercised by tests

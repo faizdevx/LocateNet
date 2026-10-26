@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<!-- Sanitized structural skeleton of a ZIPNET listing page, captured 2026-10-26. Text content removed. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>ZIPNET</title>
+  <script src="/Scripts/jquery-3.7.1.js"></script>
+  <script src="/Scripts/DataTables/jquery.dataTables.js"></script>
+</head>
+<body>
+  <div id="main" class="container-fluid">
+    <form>
+      <select id="ddlState" class="form-select"><option value="" selected>Select State</option></select>
+      <select id="ddlDistrict" class="form-select" disabled><option value="" selected>Select District</option></select>
+      <input type="date" class="form-control" id="fromCreatedDate">
+      <input type="date" class="form-control" id="toCreatedDate">
+    </form>
+    <table id="{GRID_ID}" class="table table-striped table-bordered dt-responsive nowrap" style="width:100%">
+      <thead><tr><th></th><th></th></tr></thead>
+    </table>
+  </div>
+  <script src="/Scripts/app/app.js"></script>
+  <script src="{SCRIPT}"></script>
+</body>
+</html>
