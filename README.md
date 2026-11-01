@@ -356,6 +356,31 @@ measured miss rate for that age gap.
 
 ---
 
+## Location assist (optional)
+
+With `LOCATENET_GEO_ASSIST=1`, the sighting page has a **Locate this photo** button for the case
+officer and Admins. It suggests where the photo was taken:
+
+- **GPS in the photo** (EXIF data). Messaging apps usually remove it.
+- **Shop-sign text**: read with EasyOCR (Hindi and English) and looked up on OpenStreetMap
+  (Nominatim), only within 10 km of the location the reporter typed. Text with 6 or more digits
+  (phone numbers, number plates) is dropped, never stored or looked up.
+- Evidence within 25 m is merged into one candidate place, labelled *strong* (GPS, or two different
+  signs agree) or *weak* (one sign). These are evidence levels, not probabilities.
+- Without evidence the answer is **Not sure**. A candidate more than 15 km from the reporter's
+  location raises a **location mismatch** warning.
+- The officer checks each candidate in Street View, Mapillary or the map and marks it Confirm, Wrong
+  or Unsure. Every run and verdict is in the audit log.
+
+Only photos already attached to a sighting can be located (no free upload), nothing runs
+automatically, and no image leaves the server (only sign text goes to the geocoder). Sign reading
+needs `pip install -r requirements-geo.txt` (EasyOCR, uses torch, about 5 s per photo on CPU; the
+first run downloads the OCR models). The public Nominatim service allows 1 request per second;
+self-host Nominatim or Photon before real use. Research plan for the next phases:
+[docs/GEOFUSE_PLAN.md](docs/GEOFUSE_PLAN.md).
+
+---
+
 ## Hotspot alert
 
 A hotspot is raised when **the same case is matched at least 3 times in the same city within 48
@@ -395,6 +420,9 @@ Settings are read from environment variables (or a `.env` file). See `.env.examp
 | `MAX_SIGHTING_TEMPLATES` | `3` | Confirmed sighting faces that may become reference photos per case |
 | `AUDIT_SAMPLE_RATE` | `0.02` | Share of below-threshold faces sent to the random QA queue |
 | `RETENTION_DAYS` | `90` | Deletion age for negative exemplars, QA samples and stored face embeddings |
+| `LOCATENET_GEO_ASSIST` | `0` | Location assist on sighting photos (see below) |
+| `GEO_REQUESTS_PER_HOUR` | `20` | Location-assist runs per officer per hour |
+| `GOOGLE_MAPS_EMBED_KEY` | empty | Optional Maps Embed API key for an embedded Street View; without it the page links out |
 
 Uploads: images up to 10 MB (jpg, jpeg, png, webp), videos up to 100 MB (mp4, mov, avi).
 
@@ -618,3 +646,27 @@ python scripts/seed_walkthrough.py       # empty demo database + two demo accoun
 python app.py                            # terminal 1
 python scripts/make_walkthrough.py       # terminal 2: screenshots + walkthrough.mp4 + preview gif
 ```
+
+---
+
+## Currently working on: GeoFuse (where was this sighting photo taken?)
+
+**GeoFuse** is the next feature of LocateNet and the subject of a research paper in progress.
+Many sighting photos reach the police without a reliable location: WhatsApp forwards and CCTV
+stills lose their GPS data, and the place a reporter types can be vague or wrong. GeoFuse helps an
+officer work out where a photo was taken, by combining clues from the photo (GPS data, shop-sign
+text in Indian scripts, and later street-level image matching) into a short list of candidate
+places with an honest confidence, which the officer checks in Street View before confirming.
+
+It never decides on its own: it suggests, the officer confirms. It is officer-only, works only on
+photos already attached to a sighting, and every use is logged.
+
+| Phase | What | Status |
+|---|---|---|
+| 1 | **Location assist** in the app: GPS from the photo, sign reading (Hindi and English) looked up on OpenStreetMap near the reporter's area, merged candidates, "Not sure" when there is no evidence, location-mismatch warning, Street View / Mapillary / map links, Confirm / Wrong / Unsure | **Done** (see [Location assist](#location-assist-optional)) |
+| 2 | Benchmark: phone-GPS photos from three Indian cities, with CCTV-like and WhatsApp-degraded versions; comparison with existing geolocation methods | Next |
+| 3 | Street-level image matching (Mapillary) and calibrated confidence learned from results and officer verdicts | Planned |
+| 4 | User study: do people locate photos faster and more accurately with the tool? | Planned |
+| 5 | Research paper | Planned |
+
+Full plan: [docs/GEOFUSE_PLAN.md](docs/GEOFUSE_PLAN.md).

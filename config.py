@@ -143,3 +143,9 @@ ZIPNET_SHUTDOWN_GRACE_SECONDS = max(1, _env_int("ZIPNET_SHUTDOWN_GRACE_SECONDS",
 # Show imported ZIPNET missing-person records on a public panel (/zipnet-records), like the case registry.
 # 0 = only logged-in users can open it.
 ZIPNET_PANEL_PUBLIC = _env_bool("ZIPNET_PANEL_PUBLIC", True)
+
+# Location assist for sighting photos (services/geo.py, docs/GEOFUSE_PLAN.md). Off by default.
+GEO_ASSIST = _env_bool("LOCATENET_GEO_ASSIST", False)
+GEO_REQUESTS_PER_HOUR = _env_int("GEO_REQUESTS_PER_HOUR", 20)   # per officer
+# Optional Google Maps Embed API key for the embedded Street View; without it the page links out.
+GOOGLE_MAPS_EMBED_KEY = os.environ.get("GOOGLE_MAPS_EMBED_KEY", "")

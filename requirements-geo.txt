@@ -1,0 +1,3 @@
+# Optional: sign reading for location assist (LOCATENET_GEO_ASSIST=1). Pulls in torch.
+-r requirements.txt
+easyocr==1.7.2

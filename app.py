@@ -36,7 +36,7 @@ from models import *
 from services.alert_service import AlertService, normalize_location
 import random
 
-from services import age_risk, ages, field_metrics, photo_quality, recalibration
+from services import age_risk, ages, field_metrics, geo, photo_quality, recalibration
 from services.feedback import DOWNGRADED_CATEGORY, suppression_decision, template_growth_check
 from services.calibration import Calibrator
 from services.face_service import FaceService
@@ -647,7 +647,109 @@ def sighting_detail(sighting_id):
     for f in faces:
         f["age_warning"] = case_age_warning(get_case_by_id(f["match_id"])) if f.get("match_id") not in (None, -1) else None
     reviews = db_queries.get_sighting_face_reviews(sighting_id)
-    return render_template("officer_sighting_detail.html", sighting=sighting, faces=faces, reviews=reviews)
+    geo_view = geo_context(sighting_id) if can_geo_sighting(sighting_id) else None
+    return render_template("officer_sighting_detail.html", sighting=sighting, faces=faces, reviews=reviews,
+                           geo=geo_view)
+
+
+# --- LOCATION ASSIST (services/geo.py) ---
+
+GEO_VERDICTS = {"confirm", "wrong", "unsure"}
+
+
+def can_geo_sighting(sighting_id):
+    """Officers whose case this sighting alerted on, and Admins. Off unless LOCATENET_GEO_ASSIST=1."""
+    if not config.GEO_ASSIST:
+        return False
+    return session.get("role") == "Admin" or session.get("user") in sighting_case_officers(sighting_id)
+
+
+def geocode_sign(text, box):
+    """Bounded place search for one sign text. Errors count as 'not found'."""
+    time.sleep(1)  # shortcut: public Nominatim allows 1 request/s; self-host Nominatim or Photon before a pilot
+    try:
+        found = geolocator.geocode(text, exactly_one=False, limit=3, viewbox=box, bounded=True,
+                                   country_codes="in", timeout=10) or []
+    except Exception:
+        logging.warning("Sign geocoding failed")
+        return []
+    return [(loc.latitude, loc.longitude, loc.address) for loc in found]
+
+
+def geo_prior(sighting):
+    """(lat, lon) of the area the reporter named, else of the first alerted case, else None."""
+    lat, lon = get_coords(sighting["location"])
+    if lat is not None and lon is not None:
+        return lat, lon
+    with get_db_connection() as conn:
+        row = conn.execute("SELECT c.latitude, c.longitude FROM matches m JOIN cases c ON c.id = m.case_id "
+                           "WHERE m.sighting_id = ? AND c.latitude IS NOT NULL ORDER BY m.id LIMIT 1",
+                           (sighting["id"],)).fetchone()
+    return (row[0], row[1]) if row else None
+
+
+def geo_map(result):
+    m = folium.Map(location=[result["prior_lat"] or 22.97, result["prior_lon"] or 78.66],
+                   zoom_start=13 if result["prior_lat"] else 5, tiles="OpenStreetMap")
+    if result["prior_lat"] is not None:
+        folium.Circle([result["prior_lat"], result["prior_lon"]], radius=geo.SEARCH_KM * 1000, color="gray",
+                      fill=False, dash_array="6", tooltip="Reporter's area (search radius)").add_to(m)
+    for c in result["candidates"]:
+        color = "green" if c["verdict"] == "confirm" else ("darkred" if c["level"] == "strong" else "orange")
+        folium.Circle([c["lat"], c["lon"]], radius=max(c["radius_m"] or 25, 25), color=color, fill=True,
+                      fill_opacity=0.35, tooltip=f"Candidate {c['rank']} ({c['level']})").add_to(m)
+    if result["candidates"]:
+        m.fit_bounds([[c["lat"], c["lon"]] for c in result["candidates"]], max_zoom=17)
+    return m._repr_html_()
+
+
+def geo_context(sighting_id):
+    result = latest_geo_result(sighting_id)
+    if result:
+        result["map_html"] = geo_map(result)
+        result["confirmed"] = next((c for c in result["candidates"] if c["verdict"] == "confirm"), None)
+    return {"result": result, "embed_key": config.GOOGLE_MAPS_EMBED_KEY}
+
+
+@app.route("/sighting/<string:sighting_id>/geo", methods=["POST"])
+@login_required
+def geo_locate(sighting_id):
+    sighting = db_queries.get_public_submission_by_id(sighting_id)
+    if not sighting:
+        abort(404)
+    if not can_geo_sighting(sighting_id):
+        abort(403)
+    path = os.path.join(BASE_DIR, sighting["image_path"] or "")
+    if os.path.splitext(path)[1].lower().lstrip(".") not in ALLOWED_IMAGE_EXT or not os.path.isfile(path):
+        flash("Location assist works on sighting photos only.")
+        return redirect(url_for("sighting_detail", sighting_id=sighting_id))
+    hour_ago = (datetime.now() - timedelta(hours=1)).strftime("%Y-%m-%d %H:%M:%S")
+    if count_geo_requests_since(session["user"], hour_ago) >= config.GEO_REQUESTS_PER_HOUR:
+        flash(f"Location assist limit reached ({config.GEO_REQUESTS_PER_HOUR} per hour). Try again later.")
+        return redirect(url_for("sighting_detail", sighting_id=sighting_id))
+    prior = geo_prior(sighting)
+    result = geo.locate(path, prior, geocode_sign)
+    req_id = add_geo_result(sighting_id, session["user"], prior, result)
+    log_audit(session["user"], "geo_locate", target_id=req_id,
+              details={"sighting": sighting_id, "candidates": len(result["candidates"]), "abstain": result["abstain"]})
+    return redirect(url_for("sighting_detail", sighting_id=sighting_id) + "#location-assist")
+
+
+@app.route("/sighting/<string:sighting_id>/geo/<int:candidate_id>/verdict", methods=["POST"])
+@login_required
+def geo_verdict(sighting_id, candidate_id):
+    candidate = get_geo_candidate(candidate_id)
+    if not candidate or candidate["sighting_id"] != sighting_id:
+        abort(404)
+    if not can_geo_sighting(sighting_id):
+        abort(403)
+    verdict = request.form.get("verdict")
+    if verdict not in GEO_VERDICTS:
+        flash("Invalid location verdict.")
+    else:
+        set_geo_verdict(candidate_id, verdict, session["user"])
+        log_audit(session["user"], "geo_verdict", target_id=candidate_id, details={"sighting": sighting_id, "verdict": verdict})
+    return redirect(url_for("sighting_detail", sighting_id=sighting_id) + "#location-assist")
 
 
 @app.route("/sighting/<string:sighting_id>/review/<int:face_id>", methods=["POST"])
