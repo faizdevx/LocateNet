@@ -585,3 +585,27 @@ python scripts/seed_walkthrough.py       # empty demo database + two demo accoun
 python app.py                            # terminal 1
 python scripts/make_walkthrough.py       # terminal 2: screenshots + walkthrough.mp4 + preview gif
 ```
+
+---
+
+## Currently working on: GeoFuse (where was this sighting photo taken?)
+
+**GeoFuse** is the next feature of LocateNet and the subject of a research paper in progress.
+Many sighting photos reach the police without a reliable location: WhatsApp forwards and CCTV
+stills lose their GPS data, and the place a reporter types can be vague or wrong. GeoFuse helps an
+officer work out where a photo was taken, by combining clues from the photo (GPS data, shop-sign
+text in Indian scripts, and later street-level image matching) into a short list of candidate
+places with an honest confidence, which the officer checks in Street View before confirming.
+
+It never decides on its own: it suggests, the officer confirms. It is officer-only, works only on
+photos already attached to a sighting, and every use is logged.
+
+| Phase | What | Status |
+|---|---|---|
+| 1 | **Location assist** in the app: GPS from the photo, sign reading (Hindi and English) looked up on OpenStreetMap near the reporter's area, merged candidates, "Not sure" when there is no evidence, location-mismatch warning, Street View / Mapillary / map links, Confirm / Wrong / Unsure | **Done** (see [Location assist](#location-assist-optional)) |
+| 2 | Benchmark: phone-GPS photos from three Indian cities, with CCTV-like and WhatsApp-degraded versions; comparison with existing geolocation methods | Next |
+| 3 | Street-level image matching (Mapillary) and calibrated confidence learned from results and officer verdicts | Planned |
+| 4 | User study: do people locate photos faster and more accurately with the tool? | Planned |
+| 5 | Research paper | Planned |
+
+Full plan: [docs/GEOFUSE_PLAN.md](docs/GEOFUSE_PLAN.md).
