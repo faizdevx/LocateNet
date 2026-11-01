@@ -100,3 +100,9 @@ DEBUG = _env_bool("FLASK_DEBUG", False)
 
 # SQLite database location (override to keep it on a mounted volume).
 DB_PATH = os.environ.get("LOCATENET_DB", os.path.join(BASE_DIR, "database.db"))
+
+# Location assist for sighting photos (services/geo.py, docs/GEOFUSE_PLAN.md). Off by default.
+GEO_ASSIST = _env_bool("LOCATENET_GEO_ASSIST", False)
+GEO_REQUESTS_PER_HOUR = _env_int("GEO_REQUESTS_PER_HOUR", 20)   # per officer
+# Optional Google Maps Embed API key for the embedded Street View; without it the page links out.
+GOOGLE_MAPS_EMBED_KEY = os.environ.get("GOOGLE_MAPS_EMBED_KEY", "")

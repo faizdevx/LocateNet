@@ -347,6 +347,31 @@ measured miss rate for that age gap.
 
 ---
 
+## Location assist (optional)
+
+With `LOCATENET_GEO_ASSIST=1`, the sighting page has a **Locate this photo** button for the case
+officer and Admins. It suggests where the photo was taken:
+
+- **GPS in the photo** (EXIF data). Messaging apps usually remove it.
+- **Shop-sign text**: read with EasyOCR (Hindi and English) and looked up on OpenStreetMap
+  (Nominatim), only within 10 km of the location the reporter typed. Text with 6 or more digits
+  (phone numbers, number plates) is dropped, never stored or looked up.
+- Evidence within 25 m is merged into one candidate place, labelled *strong* (GPS, or two different
+  signs agree) or *weak* (one sign). These are evidence levels, not probabilities.
+- Without evidence the answer is **Not sure**. A candidate more than 15 km from the reporter's
+  location raises a **location mismatch** warning.
+- The officer checks each candidate in Street View, Mapillary or the map and marks it Confirm, Wrong
+  or Unsure. Every run and verdict is in the audit log.
+
+Only photos already attached to a sighting can be located (no free upload), nothing runs
+automatically, and no image leaves the server (only sign text goes to the geocoder). Sign reading
+needs `pip install -r requirements-geo.txt` (EasyOCR, uses torch, about 5 s per photo on CPU; the
+first run downloads the OCR models). The public Nominatim service allows 1 request per second;
+self-host Nominatim or Photon before real use. Research plan for the next phases:
+[docs/GEOFUSE_PLAN.md](docs/GEOFUSE_PLAN.md).
+
+---
+
 ## Hotspot alert
 
 A hotspot is raised when **the same case is matched at least 3 times in the same city within 48
@@ -386,6 +411,9 @@ Settings are read from environment variables (or a `.env` file). See `.env.examp
 | `MAX_SIGHTING_TEMPLATES` | `3` | Confirmed sighting faces that may become reference photos per case |
 | `AUDIT_SAMPLE_RATE` | `0.02` | Share of below-threshold faces sent to the random QA queue |
 | `RETENTION_DAYS` | `90` | Deletion age for negative exemplars, QA samples and stored face embeddings |
+| `LOCATENET_GEO_ASSIST` | `0` | Location assist on sighting photos (see below) |
+| `GEO_REQUESTS_PER_HOUR` | `20` | Location-assist runs per officer per hour |
+| `GOOGLE_MAPS_EMBED_KEY` | empty | Optional Maps Embed API key for an embedded Street View; without it the page links out |
 
 Uploads: images up to 10 MB (jpg, jpeg, png, webp), videos up to 100 MB (mp4, mov, avi).
 

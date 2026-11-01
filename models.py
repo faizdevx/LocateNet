@@ -160,6 +160,27 @@ def create_db():
                 created_at TEXT NOT NULL,
                 FOREIGN KEY(case_id) REFERENCES cases(id)
             )""")
+        # Location assist (services/geo.py): one row per officer request, its candidate places and verdicts.
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS geo_requests (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                sighting_id TEXT NOT NULL,
+                requested_by TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                prior_lat REAL, prior_lon REAL,
+                texts TEXT, notes TEXT, mismatch_km REAL,
+                FOREIGN KEY(sighting_id) REFERENCES public_submissions(id)
+            )""")
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS geo_candidates (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                request_id INTEGER NOT NULL,
+                rank INTEGER NOT NULL,
+                lat REAL NOT NULL, lon REAL NOT NULL, radius_m REAL,
+                level TEXT, score REAL, evidence TEXT,
+                verdict TEXT, reviewed_by TEXT, reviewed_at TEXT,
+                FOREIGN KEY(request_id) REFERENCES geo_requests(id)
+            )""")
         case_columns = [row[1] for row in cursor.execute("PRAGMA table_info(cases)").fetchall()]
         for col, kind in (("dob", "TEXT"), ("age_reported", "REAL"), ("age_reported_on", "TEXT")):
             if col not in case_columns:
@@ -324,6 +345,64 @@ def log_audit(actor, action, case_id=None, target_id=None, details=None):
                      (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), actor, action, case_id, target_id,
                       json.dumps(details) if details is not None else None))
         conn.commit()
+
+
+def add_geo_result(sighting_id, user, prior, result):
+    """Store one location-assist run. Returns the request id."""
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    with get_db_connection() as conn:
+        req_id = conn.execute(
+            "INSERT INTO geo_requests (sighting_id, requested_by, created_at, prior_lat, prior_lon, texts, notes, mismatch_km) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (sighting_id, user, now, prior[0] if prior else None, prior[1] if prior else None,
+             json.dumps(result["texts"]), json.dumps(result["notes"]), result["mismatch_km"])).lastrowid
+        for rank, c in enumerate(result["candidates"], 1):
+            conn.execute("INSERT INTO geo_candidates (request_id, rank, lat, lon, radius_m, level, score, evidence) "
+                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                         (req_id, rank, c["lat"], c["lon"], c["radius_m"], c["level"], c["score"], json.dumps(c["evidence"])))
+        conn.commit()
+    return req_id
+
+
+def latest_geo_result(sighting_id):
+    """The newest location-assist run of a sighting with its candidates, or None."""
+    with get_db_connection() as conn:
+        req = conn.execute("SELECT * FROM geo_requests WHERE sighting_id = ? ORDER BY id DESC LIMIT 1",
+                           (sighting_id,)).fetchone()
+        if req is None:
+            return None
+        req = dict(req)
+        req["texts"], req["notes"] = json.loads(req["texts"] or "[]"), json.loads(req["notes"] or "[]")
+        req["candidates"] = [dict(r, evidence=json.loads(r["evidence"] or "[]")) for r in conn.execute(
+            "SELECT * FROM geo_candidates WHERE request_id = ? ORDER BY rank", (req["id"],)).fetchall()]
+    return req
+
+
+def get_geo_candidate(candidate_id):
+    with get_db_connection() as conn:
+        row = conn.execute("SELECT c.*, r.sighting_id FROM geo_candidates c JOIN geo_requests r ON r.id = c.request_id "
+                           "WHERE c.id = ?", (candidate_id,)).fetchone()
+    return dict(row) if row else None
+
+
+def set_geo_verdict(candidate_id, verdict, user):
+    with get_db_connection() as conn:
+        conn.execute("UPDATE geo_candidates SET verdict = ?, reviewed_by = ?, reviewed_at = ? WHERE id = ?",
+                     (verdict, user, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), candidate_id))
+        conn.commit()
+
+
+def count_geo_requests_since(user, since):
+    with get_db_connection() as conn:
+        return conn.execute("SELECT COUNT(*) FROM geo_requests WHERE requested_by = ? AND created_at >= ?",
+                            (user, since)).fetchone()[0]
+
+
+def sighting_case_officers(sighting_id):
+    """Officers whose cases this sighting raised an alert for."""
+    with get_db_connection() as conn:
+        return {r[0] for r in conn.execute("SELECT DISTINCT c.officer FROM matches m JOIN cases c ON c.id = m.case_id "
+                                           "WHERE m.sighting_id = ?", (sighting_id,)).fetchall()}
 
 
 def get_audit_log(case_id, limit=100):
